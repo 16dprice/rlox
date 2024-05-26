@@ -1,3 +1,9 @@
+mod chunk;
+
+use chunk::{Chunk, OpCode};
+
 fn main() {
-    println!("Hello, world!");
+    let mut first_chunk = Chunk::new();
+
+    first_chunk.write_chunk(OpCode::Constant, 1);
 }
