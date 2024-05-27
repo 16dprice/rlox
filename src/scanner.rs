@@ -402,9 +402,4 @@ mod tests {
             _ => panic!("Expected Number token, got {:?}", two.token_type),
         }
     }
-
-    #[test]
-    fn failing_test() {
-        assert!(true == false);
-    }
 }
