@@ -1,6 +1,11 @@
 use crate::chunk::{Chunk, OpCode};
 use crate::value::print_value;
 
+fn simple_instruction(name: &str, offset: usize) -> usize {
+    println!("{}", name);
+    return offset + 1;
+}
+
 fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     print!("CHUNK OFFSET - {:0>4} | ", offset);
     if offset > 0 && chunk.lines[offset] == chunk.lines[offset - 1] {
@@ -12,7 +17,7 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     let instruction = chunk.code[offset];
 
     if instruction == OpCode::Return as u8 {
-        println!("RETURN");
+        println!("OP_RETURN");
         return offset + 1;
     } else if instruction == OpCode::Constant as u8 {
         let constant = &chunk.constants[chunk.code[offset + 1] as usize];
@@ -21,6 +26,8 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
         println!("'");
 
         return offset + 2;
+    } else if instruction == OpCode::Add as u8 {
+        return simple_instruction("OP_ADD", offset);
     } else {
         println!("Unkown opcode {:0>4}", instruction);
         return offset + 1;

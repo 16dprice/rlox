@@ -36,9 +36,6 @@ fn run_file(file_path: &str) {
     file.read_to_string(&mut contents)
         .expect("Could not write file to string");
 
-    // let mut scanner = Scanner::new(contents);
-    // let string_stuff = scanner.source.as_str();
-
     let first_chunk = Chunk::new();
     let mut compiler = Compiler::new(contents, first_chunk);
 
@@ -46,7 +43,7 @@ fn run_file(file_path: &str) {
 
     compiler.compile(Some(second_chunk));
 
-    disassemble_chunk(&compiler.compiling_chunk, "asdf");
+    disassemble_chunk(&compiler.compiling_chunk, "First Chunk!");
 
     // TODO: run the file
 }
