@@ -87,7 +87,54 @@ impl Scanner {
     }
 
     fn is_at_end(&self) -> bool {
-        self.start + 1 == self.source.len()
+        self.current + 1 == self.source.len()
+    }
+
+    fn advance(&mut self) -> char {
+        self.current += 1;
+        return self
+            .source
+            .chars()
+            .nth(self.current - 1)
+            .expect(format!("Couldn't get char at index {}", self.current - 1).as_str());
+    }
+
+    // This will probably be incredibly slow over time since it converts
+    // the source to a list of chars every time. It may be more economical
+    // to just instantiate a vector of chars when the `new` func is called.
+    fn peek(&self) -> char {
+        return self
+            .source
+            .chars()
+            .nth(self.current)
+            .expect(format!("Couldn't get char at index {}", self.current).as_str());
+    }
+
+    fn skip_whitespace(&mut self) {
+        loop {
+            if self.is_at_end() {
+                break;
+            }
+
+            let c = self.peek();
+
+            match c {
+                ' ' | '\r' | '\t' => {
+                    self.advance();
+                }
+                '\n' => {
+                    self.line += 1;
+                    self.advance();
+                }
+                '/' => {
+                    // TODO: Handle comments!
+                    self.advance();
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
     }
 
     pub fn scan_token(&mut self) -> Token {
@@ -95,10 +142,12 @@ impl Scanner {
             return self.make_token(TokenType::Eof);
         }
 
-        let token = self.make_token(TokenType::And);
+        self.skip_whitespace();
 
-        self.start += 1;
-        self.current = self.start;
+        self.start = self.current;
+
+        let token = self.make_token(TokenType::And);
+        self.advance();
 
         return token;
     }

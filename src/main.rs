@@ -46,18 +46,7 @@ fn run_file(file_path: &str) {
             TokenType::Eof => break,
             _ => println!("{:?}", token),
         }
-        // if token.token_type == TokenType::Eof {
-        //     break;
-        // } else {
-        //     println!("{:?}", token);
-        // }
     }
-    // println!("{:?}", scanner.scan_token());
-    // println!("{:?}", scanner.scan_token());
-    // println!("{:?}", scanner.scan_token());
-    // println!("{:?}", scanner.scan_token());
-    // println!("{:?}", scanner.scan_token());
-    // println!("{:?}", scanner.scan_token());
 
     // run the file
 }
