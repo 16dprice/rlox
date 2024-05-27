@@ -6,6 +6,7 @@ mod value;
 
 use chunk::Chunk;
 use compiler::Compiler;
+use debug::disassemble_chunk;
 use scanner::{Scanner, TokenType};
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -45,6 +46,8 @@ fn run_file(file_path: &str) {
     let second_chunk = Chunk::new();
 
     compiler.compile(Some(second_chunk));
+
+    disassemble_chunk(&compiler.compiling_chunk, "asdf");
 
     // TODO: run the file
 }

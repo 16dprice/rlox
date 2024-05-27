@@ -54,9 +54,9 @@ pub enum TokenType {
 #[derive(Debug, Clone, Copy)]
 pub struct Token {
     pub token_type: TokenType,
-    start: usize,
-    length: usize,
-    line: usize,
+    pub start: usize,
+    pub length: usize,
+    pub line: usize,
 }
 
 impl Token {

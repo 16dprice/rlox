@@ -22,7 +22,7 @@ pub enum OpCode {
 #[derive(Debug)]
 pub struct Chunk {
     pub code: Vec<u8>,
-    pub lines: Vec<u32>,
+    pub lines: Vec<usize>,
     pub constants: Vec<Value>,
 }
 
@@ -35,7 +35,7 @@ impl Chunk {
         }
     }
 
-    pub fn write_code(&mut self, code: u8, line: u32) {
+    pub fn write_code(&mut self, code: u8, line: usize) {
         self.code.push(code);
         self.lines.push(line);
     }
