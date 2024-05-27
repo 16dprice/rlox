@@ -55,6 +55,6 @@ fn main() {
     if use_repl {
         repl();
     } else {
-        run_file("/Users/dj/Code/rlox/data/test.rlox");
+        run_file("./data/test.rlox");
     }
 }
