@@ -21,6 +21,7 @@ impl Parser {
     }
 }
 
+#[derive(Clone, Copy)]
 enum Precedence {
     None,
     Assignment, // =
@@ -37,6 +38,7 @@ enum Precedence {
 
 type ParseFnPtr = fn(&mut Compiler) -> ();
 
+#[derive(Clone, Copy)]
 struct ParseRule {
     prefix: Option<ParseFnPtr>,
     infix: Option<ParseFnPtr>,
@@ -450,29 +452,72 @@ impl Compiler {
 
     fn string(&mut self) {}
 
-    fn number(&mut self) {}
+    fn number(&mut self) {
+        println!("Number called!");
+    }
 
     fn unary(&mut self) {}
 
-    fn binary(&mut self) {}
+    fn binary(&mut self) {
+        println!("Binary called!");
+    }
 
     fn grouping(&mut self) {}
 
+    fn parse_precedence(&mut self, precedence: Precedence) {
+        self.advance();
+
+        {
+            let Some(parse_rule) = self.precedence_map.get(&self.parser.previous.token_type) else {
+            self.error(format!("Expect parse rule for {:?}.", &self.parser.previous.token_type).as_str());
+            return;
+        };
+
+            let Some(prefix_func) = parse_rule.prefix else {
+            self.error("Expect expression.");
+            return;
+        };
+
+            prefix_func(self);
+        }
+
+        loop {
+            let Some(&parse_rule) = &self.precedence_map.get(
+                &self.parser.current.token_type
+            ) else {
+                self.error(format!("Expect parse rule for {:?}.", &self.parser.current.token_type).as_str());
+                return;
+            };
+
+            if precedence as u8 > parse_rule.precedence as u8 {
+                return;
+            }
+
+            self.advance();
+
+            match parse_rule.infix {
+                Some(infix_func) => infix_func(self),
+                _ => return,
+            }
+        }
+    }
+
     fn expression(&mut self) {
-        self.advance();
-        self.emit_byte(OpCode::Constant as u8);
+        self.parse_precedence(Precedence::Assignment);
+        // self.advance();
+        // self.emit_byte(OpCode::Constant as u8);
 
-        let constant_index = self.compiling_chunk.write_constant(5.0);
-        self.emit_byte(constant_index as u8);
+        // let constant_index = self.compiling_chunk.write_constant(5.0);
+        // self.emit_byte(constant_index as u8);
 
-        self.advance();
-        self.emit_byte(OpCode::Constant as u8);
+        // self.advance();
+        // self.emit_byte(OpCode::Constant as u8);
 
-        let constant_index = self.compiling_chunk.write_constant(2.0);
-        self.emit_byte(constant_index as u8);
+        // let constant_index = self.compiling_chunk.write_constant(2.0);
+        // self.emit_byte(constant_index as u8);
 
-        self.advance();
-        self.emit_byte(OpCode::Add as u8);
+        // self.advance();
+        // self.emit_byte(OpCode::Add as u8);
     }
 
     pub fn compile(&mut self, chunk: Option<Chunk>) -> bool {
