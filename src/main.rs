@@ -36,15 +36,15 @@ fn run_file(file_path: &str) {
     file.read_to_string(&mut contents)
         .expect("Could not write file to string");
 
-    let mut scanner = Scanner::new(contents);
-    let string_stuff = scanner.source.as_str();
+    // let mut scanner = Scanner::new(contents);
+    // let string_stuff = scanner.source.as_str();
 
-    let mut first_chunk = Chunk::new();
-    let mut compiler = Compiler::new(&mut scanner, &mut first_chunk);
+    let first_chunk = Chunk::new();
+    let mut compiler = Compiler::new(contents, first_chunk);
 
-    let mut second_chunk = Chunk::new();
+    let second_chunk = Chunk::new();
 
-    compiler.compile(Some(&mut second_chunk));
+    compiler.compile(Some(second_chunk));
 
     // TODO: run the file
 }

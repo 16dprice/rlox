@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -51,12 +51,23 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token {
     pub token_type: TokenType,
     start: usize,
     length: usize,
     line: usize,
+}
+
+impl Token {
+    pub fn default() -> Token {
+        Token {
+            token_type: TokenType::Error,
+            start: 0,
+            length: 0,
+            line: 0,
+        }
+    }
 }
 
 fn is_alpha(c: char) -> bool {

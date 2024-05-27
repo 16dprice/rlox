@@ -1,5 +1,5 @@
 use crate::chunk::Chunk;
-use crate::scanner::{Scanner, Token};
+use crate::scanner::{Scanner, Token, TokenType};
 
 struct Parser {
     current: Token,
@@ -9,32 +9,71 @@ struct Parser {
 }
 
 impl Parser {
-    // pub fn new() -> Parser {
-    //     Parser {
-    //         current: None,
-    //         previous: None,
-    //         had_error: false,
-    //         panic_mode: false,
-    //     }
-    // }
+    pub fn new() -> Parser {
+        Parser {
+            current: Token::default(),
+            previous: Token::default(),
+            had_error: false,
+            panic_mode: false,
+        }
+    }
 }
 
-pub struct Compiler<'a, 'b> {
-    scanner: &'a mut Scanner,
-    compiling_chunk: &'b mut Chunk,
+pub struct Compiler {
+    scanner: Scanner,
+    compiling_chunk: Chunk,
+    parser: Parser,
 }
 
-impl<'a, 'b> Compiler<'a, 'b> {
-    pub fn new(scanner: &'a mut Scanner, chunk: &'b mut Chunk) -> Compiler<'a, 'b> {
+impl Compiler {
+    pub fn new(source: String, chunk: Chunk) -> Compiler {
         Compiler {
-            scanner,
+            scanner: Scanner::new(source),
             compiling_chunk: chunk,
+            parser: Parser::new(),
         }
     }
 
-    pub fn compile(&mut self, mut chunk: Option<&'b mut Chunk>) {
-        if let Some(ref mut c) = chunk {
-            println!("{:?}", c);
+    fn error_at(&self, token: &Token, message: &str) {
+        println!("{:?} - {}", token, message);
+    }
+
+    fn error(&self, message: &str) {
+        self.error_at(&self.parser.previous, message);
+    }
+
+    fn error_at_current(&self, message: &str) {
+        self.error_at(&self.parser.current, message);
+    }
+
+    fn advance(&mut self) {
+        self.parser.previous = self.parser.current;
+
+        loop {
+            self.parser.current = self.scanner.scan_token();
+
+            match self.parser.current.token_type {
+                TokenType::Error => self.error_at_current("error"),
+                _ => break,
+            }
         }
+    }
+
+    fn expression(&self) {
+        println!("expression called");
+    }
+
+    pub fn compile(&mut self, chunk: Option<Chunk>) -> bool {
+        if let Some(c) = chunk {
+            self.compiling_chunk = c;
+        }
+
+        self.parser.had_error = false;
+        self.parser.panic_mode = false;
+
+        self.advance();
+        self.expression();
+
+        return !self.parser.had_error;
     }
 }
