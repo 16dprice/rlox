@@ -3,6 +3,7 @@ mod compiler;
 mod debug;
 mod scanner;
 mod value;
+mod vm;
 
 use chunk::Chunk;
 use compiler::Compiler;
