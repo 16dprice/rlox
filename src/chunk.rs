@@ -19,6 +19,7 @@ pub enum OpCode {
     Not,
 }
 
+#[derive(Debug)]
 pub struct Chunk {
     pub code: Vec<u8>,
     pub lines: Vec<u32>,

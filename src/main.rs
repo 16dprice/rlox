@@ -1,8 +1,11 @@
 mod chunk;
+mod compiler;
 mod debug;
 mod scanner;
 mod value;
 
+use chunk::Chunk;
+use compiler::Compiler;
 use scanner::{Scanner, TokenType};
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -36,18 +39,12 @@ fn run_file(file_path: &str) {
     let mut scanner = Scanner::new(contents);
     let string_stuff = scanner.source.as_str();
 
-    println!("{}", string_stuff.len());
+    let mut first_chunk = Chunk::new();
+    let mut compiler = Compiler::new(&mut scanner, &mut first_chunk);
 
-    loop {
-        let token = scanner.scan_token();
-        match token.token_type {
-            TokenType::Eof => {
-                println!("{:?}", token);
-                break;
-            }
-            _ => println!("{:?}", token),
-        }
-    }
+    let mut second_chunk = Chunk::new();
+
+    compiler.compile(Some(&mut second_chunk));
 
     // TODO: run the file
 }

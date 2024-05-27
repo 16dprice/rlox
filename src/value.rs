@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Value {
     Boolean(bool),
     Number(f64),
