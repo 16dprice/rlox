@@ -376,9 +376,10 @@ impl Scanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
-    fn test_something() {
+    fn basic_arithmetic_tokens() {
         let source = String::from("1 + 2");
 
         let mut scanner = Scanner::new(source);
@@ -387,19 +388,38 @@ mod tests {
         let plus = scanner.scan_token();
         let two = scanner.scan_token();
 
-        match one.token_type {
-            TokenType::Number => {}
-            _ => panic!("Expected Number token, got {:?}", one.token_type),
-        }
+        assert_eq!(one.token_type as u8, TokenType::Number as u8);
+        assert_eq!(plus.token_type as u8, TokenType::Plus as u8);
+        assert_eq!(two.token_type as u8, TokenType::Number as u8);
+    }
 
-        match plus.token_type {
-            TokenType::Plus => {}
-            _ => panic!("Expected Plus token, got {:?}", plus.token_type),
-        }
+    #[test]
+    fn keywords() {
+        let keywords_to_enum = HashMap::from([
+            ("and", TokenType::And),
+            ("class", TokenType::Class),
+            ("else", TokenType::Else),
+            ("false", TokenType::False),
+            ("for", TokenType::For),
+            ("fun", TokenType::Fun),
+            ("if", TokenType::If),
+            ("nil", TokenType::Nil),
+            ("or", TokenType::Or),
+            ("print", TokenType::Print),
+            ("return", TokenType::Return),
+            ("super", TokenType::Super),
+            ("this", TokenType::This),
+            ("true", TokenType::True),
+            ("var", TokenType::Var),
+            ("while", TokenType::While),
+        ]);
 
-        match two.token_type {
-            TokenType::Number => {}
-            _ => panic!("Expected Number token, got {:?}", two.token_type),
+        for (k, v) in keywords_to_enum.into_iter() {
+            let source = String::from(k);
+            let mut scanner = Scanner::new(source);
+            let token = scanner.scan_token();
+
+            assert_eq!(token.token_type as u8, v as u8);
         }
     }
 }
