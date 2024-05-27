@@ -36,6 +36,24 @@ enum Precedence {
     Primary,
 }
 
+impl Precedence {
+    fn from_u8(i: u8) -> Precedence {
+        match i {
+            0 => Precedence::None,
+            1 => Precedence::Assignment,
+            2 => Precedence::Or,
+            3 => Precedence::And,
+            4 => Precedence::Equality,
+            5 => Precedence::Comparison,
+            6 => Precedence::Term,
+            7 => Precedence::Factor,
+            8 => Precedence::Unary,
+            9 => Precedence::Call,
+            _ => Precedence::Primary,
+        }
+    }
+}
+
 type ParseFnPtr = fn(&mut Compiler) -> ();
 
 #[derive(Clone, Copy)]
@@ -453,13 +471,40 @@ impl Compiler {
     fn string(&mut self) {}
 
     fn number(&mut self) {
-        println!("Number called!");
+        self.emit_byte(OpCode::Constant as u8);
+
+        let lexeme = &self.scanner.source[self.parser.previous.start
+            ..(self.parser.previous.start + self.parser.previous.length)];
+
+        match lexeme.parse::<f64>() {
+            Ok(value) => {
+                let constant_index = self.compiling_chunk.write_constant(value);
+                self.emit_byte(constant_index as u8);
+            }
+            Err(e) => self
+                .error(format!("couldn't parse {} into number, got error: {}", lexeme, e).as_str()),
+        }
     }
 
     fn unary(&mut self) {}
 
     fn binary(&mut self) {
-        println!("Binary called!");
+        let op_type = self.parser.previous.token_type;
+
+        let parse_rule = match self.precedence_map.get(&op_type).cloned() {
+            Some(pr) => pr,
+            _ => {
+                self.error(format!("Expect parse rule for {:?}.", &op_type).as_str());
+                return;
+            }
+        };
+
+        self.parse_precedence(Precedence::from_u8(parse_rule.precedence as u8 + 1));
+
+        match op_type {
+            TokenType::Plus => self.emit_byte(OpCode::Add as u8),
+            _ => println!("need to implement binary opcode {:?}", op_type),
+        }
     }
 
     fn grouping(&mut self) {}
@@ -467,26 +512,48 @@ impl Compiler {
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
 
+        let parse_rule = match self
+            .precedence_map
+            .get(&self.parser.previous.token_type)
+            .cloned()
         {
-            let Some(parse_rule) = self.precedence_map.get(&self.parser.previous.token_type) else {
-            self.error(format!("Expect parse rule for {:?}.", &self.parser.previous.token_type).as_str());
-            return;
+            Some(pr) => pr,
+            _ => {
+                self.error(
+                    format!(
+                        "Expect parse rule for {:?}.",
+                        &self.parser.previous.token_type
+                    )
+                    .as_str(),
+                );
+                return;
+            }
         };
 
-            let Some(prefix_func) = parse_rule.prefix else {
+        let Some(prefix_func) = parse_rule.prefix else {
             self.error("Expect expression.");
             return;
         };
 
-            prefix_func(self);
-        }
+        prefix_func(self);
 
         loop {
-            let Some(&parse_rule) = &self.precedence_map.get(
-                &self.parser.current.token_type
-            ) else {
-                self.error(format!("Expect parse rule for {:?}.", &self.parser.current.token_type).as_str());
-                return;
+            let parse_rule = match self
+                .precedence_map
+                .get(&self.parser.current.token_type)
+                .cloned()
+            {
+                Some(pr) => pr,
+                _ => {
+                    self.error(
+                        format!(
+                            "Expect parse rule for {:?}.",
+                            &self.parser.current.token_type
+                        )
+                        .as_str(),
+                    );
+                    return;
+                }
             };
 
             if precedence as u8 > parse_rule.precedence as u8 {
@@ -504,20 +571,6 @@ impl Compiler {
 
     fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);
-        // self.advance();
-        // self.emit_byte(OpCode::Constant as u8);
-
-        // let constant_index = self.compiling_chunk.write_constant(5.0);
-        // self.emit_byte(constant_index as u8);
-
-        // self.advance();
-        // self.emit_byte(OpCode::Constant as u8);
-
-        // let constant_index = self.compiling_chunk.write_constant(2.0);
-        // self.emit_byte(constant_index as u8);
-
-        // self.advance();
-        // self.emit_byte(OpCode::Add as u8);
     }
 
     pub fn compile(&mut self, chunk: Option<Chunk>) -> bool {
