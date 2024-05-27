@@ -60,6 +60,10 @@ pub struct Token {
     line: usize,
 }
 
+fn is_alpha(c: char) -> bool {
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
 fn is_digit(c: char) -> bool {
     c >= '0' && c <= '9'
 }
@@ -91,9 +95,12 @@ impl Scanner {
     }
 
     fn is_at_end(&self) -> bool {
-        self.current + 1 == self.source.len()
+        self.current == self.source.len()
     }
 
+    // This will probably be incredibly slow over time since it converts
+    // the source to a list of chars every time. It may be more economical
+    // to just instantiate a vector of chars when the `new` func is called.
     fn get_char_at_index(&self, index: usize) -> char {
         return self
             .source
@@ -107,10 +114,11 @@ impl Scanner {
         return self.get_char_at_index(self.current - 1);
     }
 
-    // This will probably be incredibly slow over time since it converts
-    // the source to a list of chars every time. It may be more economical
-    // to just instantiate a vector of chars when the `new` func is called.
     fn peek(&self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+
         return self.get_char_at_index(self.current);
     }
 
@@ -120,6 +128,18 @@ impl Scanner {
         }
 
         return Some(self.get_char_at_index(self.current + 1));
+    }
+
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+        if self.peek() != expected {
+            return false;
+        }
+
+        self.current += 1;
+        return true;
     }
 
     fn skip_whitespace(&mut self) {
@@ -138,15 +158,27 @@ impl Scanner {
                     self.line += 1;
                     self.advance();
                 }
-                '/' => {
-                    // TODO: Handle comments!
-                    self.advance();
-                }
+                '/' => match self.peek_next() {
+                    Some('/') => {
+                        while self.peek() != '\n' && !self.is_at_end() {
+                            self.advance();
+                        }
+                    }
+                    _ => break,
+                },
                 _ => {
                     break;
                 }
             }
         }
+    }
+
+    fn identifier(&mut self) -> Token {
+        while is_alpha(self.peek()) || is_digit(self.peek()) {
+            self.advance();
+        }
+
+        return self.make_token(TokenType::Identifier);
     }
 
     fn number(&mut self) -> Token {
@@ -160,6 +192,7 @@ impl Scanner {
                 Some(c) => {
                     if is_digit(c) {
                         self.advance();
+
                         while is_digit(self.peek()) {
                             self.advance();
                         }
@@ -171,6 +204,29 @@ impl Scanner {
         return self.make_token(TokenType::Number);
     }
 
+    fn string(&mut self) -> Token {
+        loop {
+            if self.is_at_end() {
+                return self.make_token(TokenType::Error);
+            }
+
+            let c = self.peek();
+
+            if c == '\n' {
+                self.line += 1;
+            }
+
+            if c != '"' {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        self.advance();
+        return self.make_token(TokenType::String);
+    }
+
     pub fn scan_token(&mut self) -> Token {
         self.skip_whitespace();
         self.start = self.current;
@@ -180,10 +236,59 @@ impl Scanner {
         }
 
         let c = self.advance();
+
+        if is_alpha(c) {
+            return self.identifier();
+        }
         if is_digit(c) {
             return self.number();
-        } else {
-            return self.make_token(TokenType::And);
+        }
+
+        match c {
+            '(' => return self.make_token(TokenType::LeftParen),
+            ')' => return self.make_token(TokenType::RightParen),
+            '{' => return self.make_token(TokenType::LeftBrace),
+            '}' => return self.make_token(TokenType::RightBrace),
+            ';' => return self.make_token(TokenType::Semicolon),
+            ',' => return self.make_token(TokenType::Comma),
+            '.' => return self.make_token(TokenType::Dot),
+            '-' => return self.make_token(TokenType::Minus),
+            '+' => return self.make_token(TokenType::Plus),
+            '/' => return self.make_token(TokenType::Slash),
+            '*' => return self.make_token(TokenType::Star),
+
+            '!' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::BangEqual);
+                } else {
+                    return self.make_token(TokenType::Bang);
+                }
+            }
+            '=' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::EqualEqual);
+                } else {
+                    return self.make_token(TokenType::Equal);
+                }
+            }
+            '<' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::LessEqual);
+                } else {
+                    return self.make_token(TokenType::Less);
+                }
+            }
+            '>' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::GreaterEqual);
+                } else {
+                    return self.make_token(TokenType::Greater);
+                }
+            }
+
+            '"' => return self.string(),
+
+            _ => return self.make_token(TokenType::Error),
         }
     }
 }

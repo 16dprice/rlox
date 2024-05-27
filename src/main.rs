@@ -41,7 +41,10 @@ fn run_file(file_path: &str) {
     loop {
         let token = scanner.scan_token();
         match token.token_type {
-            TokenType::Eof => break,
+            TokenType::Eof => {
+                println!("{:?}", token);
+                break;
+            }
             _ => println!("{:?}", token),
         }
     }
