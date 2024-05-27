@@ -25,17 +25,6 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
         println!("Unkown opcode {:0>4}", instruction);
         return offset + 1;
     }
-
-    // printf("CHUNK OFFSET - %04d | ", offset);
-
-    // if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1])
-    // {
-    //     printf("LINE -    | ");
-    // }
-    // else
-    // {
-    //     printf("LINE - %04d ", chunk->lines[offset]);
-    // }
 }
 
 pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
@@ -46,13 +35,3 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
         offset = disassemble_instruction(chunk, offset);
     }
 }
-
-// void disassembleChunk(Chunk *chunk, const char *name)
-// {
-//     printf("== %s ==\n", name);
-
-//     for (int offset = 0; offset < chunk->count;)
-//     {
-//         offset = disassembleInstruction(chunk, offset);
-//     }
-// }

@@ -3,8 +3,6 @@ mod debug;
 mod scanner;
 mod value;
 
-use chunk::{Chunk, OpCode};
-use debug::disassemble_chunk;
 use scanner::{Scanner, TokenType};
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -48,7 +46,7 @@ fn run_file(file_path: &str) {
         }
     }
 
-    // run the file
+    // TODO: run the file
 }
 
 fn main() {

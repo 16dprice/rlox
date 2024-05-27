@@ -150,17 +150,6 @@ impl Scanner {
     }
 
     fn number(&mut self) -> Token {
-        //     while (isDigit(peek()))
-        //     advance();
-
-        // if (peek() == '.' && isDigit(peekNext()))
-        // {
-        //     advance();
-        //     while (isDigit(peek()))
-        //         advance();
-        // }
-
-        // return makeToken(TOKEN_NUMBER);
         while is_digit(self.peek()) {
             self.advance();
         }
