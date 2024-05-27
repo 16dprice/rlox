@@ -1,5 +1,4 @@
 #[derive(Debug)]
-#[allow(dead_code)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -370,6 +369,37 @@ impl Scanner {
             '"' => return self.string(),
 
             _ => return self.make_token(TokenType::Error),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_something() {
+        let source = String::from("1 + 2");
+
+        let mut scanner = Scanner::new(source);
+
+        let one = scanner.scan_token();
+        let plus = scanner.scan_token();
+        let two = scanner.scan_token();
+
+        match one.token_type {
+            TokenType::Number => {}
+            _ => panic!("Expected Number token, got {:?}", one.token_type),
+        }
+
+        match plus.token_type {
+            TokenType::Plus => {}
+            _ => panic!("Expected Plus token, got {:?}", plus.token_type),
+        }
+
+        match two.token_type {
+            TokenType::Number => {}
+            _ => panic!("Expected Number token, got {:?}", two.token_type),
         }
     }
 }
