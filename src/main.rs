@@ -5,11 +5,9 @@ mod scanner;
 mod value;
 mod vm;
 
-use chunk::Chunk;
-use compiler::Compiler;
-use debug::disassemble_chunk;
 use std::fs::File;
 use std::io::{self, Read, Write};
+use vm::VM;
 
 fn repl() {
     loop {
@@ -32,21 +30,15 @@ fn repl() {
 fn run_file(file_path: &str) {
     let mut file =
         File::open(file_path).expect(format!("Could not open file {}", file_path).as_str());
-    let mut contents = String::new();
+    let mut source = String::new();
 
-    file.read_to_string(&mut contents)
+    file.read_to_string(&mut source)
         .expect("Could not write file to string");
 
-    let first_chunk = Chunk::new();
-    let mut compiler = Compiler::new(contents, first_chunk);
+    let vm = VM::new();
+    vm.interpret(source);
 
-    let second_chunk = Chunk::new();
-
-    compiler.compile(Some(second_chunk));
-
-    disassemble_chunk(&compiler.compiling_chunk, "First Chunk!");
-
-    // TODO: run the file
+    // disassemble_chunk(&compiler.compiling_chunk, "First Chunk!");
 }
 
 fn main() {
