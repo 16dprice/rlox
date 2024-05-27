@@ -391,6 +391,10 @@ mod tests {
         assert_eq!(one.token_type as u8, TokenType::Number as u8);
         assert_eq!(plus.token_type as u8, TokenType::Plus as u8);
         assert_eq!(two.token_type as u8, TokenType::Number as u8);
+
+        assert_eq!(one.length, 1);
+        assert_eq!(plus.length, 1);
+        assert_eq!(two.length, 1);
     }
 
     #[test]
@@ -421,5 +425,40 @@ mod tests {
 
             assert_eq!(token.token_type as u8, v as u8);
         }
+    }
+
+    #[test]
+    fn whitespace_doesnt_matter() {
+        let source = String::from(
+            "
+        
+        
+                false
+            1 - 5
+
+
+
+            \"hello\"
+        ",
+        );
+        let mut scanner = Scanner::new(source);
+
+        let false_token = scanner.scan_token();
+        let one = scanner.scan_token();
+        let minus = scanner.scan_token();
+        let five = scanner.scan_token();
+        let hello_string = scanner.scan_token();
+
+        assert_eq!(false_token.token_type as u8, TokenType::False as u8);
+        assert_eq!(one.token_type as u8, TokenType::Number as u8);
+        assert_eq!(minus.token_type as u8, TokenType::Minus as u8);
+        assert_eq!(five.token_type as u8, TokenType::Number as u8);
+        assert_eq!(hello_string.token_type as u8, TokenType::String as u8);
+
+        assert_eq!(false_token.length, 5);
+        assert_eq!(one.length, 1);
+        assert_eq!(minus.length, 1);
+        assert_eq!(five.length, 1);
+        assert_eq!(hello_string.length, 7);
     }
 }
