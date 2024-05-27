@@ -35,8 +35,8 @@ fn run_file(file_path: &str) {
     file.read_to_string(&mut source)
         .expect("Could not write file to string");
 
-    let vm = VM::new();
-    vm.interpret(source);
+    let mut vm = VM::new();
+    let result = vm.interpret(source);
 
     // disassemble_chunk(&compiler.compiling_chunk, "First Chunk!");
 }
