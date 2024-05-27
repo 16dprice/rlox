@@ -7,7 +7,6 @@ mod value;
 use chunk::Chunk;
 use compiler::Compiler;
 use debug::disassemble_chunk;
-use scanner::{Scanner, TokenType};
 use std::fs::File;
 use std::io::{self, Read, Write};
 
