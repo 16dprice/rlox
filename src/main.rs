@@ -1,9 +1,11 @@
 mod chunk;
 mod debug;
+mod scanner;
 mod value;
 
 use chunk::{Chunk, OpCode};
 use debug::disassemble_chunk;
+use scanner::{Scanner, TokenType};
 use std::fs::File;
 use std::io::{self, Read, Write};
 
@@ -33,7 +35,29 @@ fn run_file(file_path: &str) {
     file.read_to_string(&mut contents)
         .expect("Could not write file to string");
 
-    println!("{}", contents);
+    let mut scanner = Scanner::new(contents);
+    let string_stuff = scanner.source.as_str();
+
+    println!("{}", string_stuff.len());
+
+    loop {
+        let token = scanner.scan_token();
+        match token.token_type {
+            TokenType::Eof => break,
+            _ => println!("{:?}", token),
+        }
+        // if token.token_type == TokenType::Eof {
+        //     break;
+        // } else {
+        //     println!("{:?}", token);
+        // }
+    }
+    // println!("{:?}", scanner.scan_token());
+    // println!("{:?}", scanner.scan_token());
+    // println!("{:?}", scanner.scan_token());
+    // println!("{:?}", scanner.scan_token());
+    // println!("{:?}", scanner.scan_token());
+    // println!("{:?}", scanner.scan_token());
 
     // run the file
 }
@@ -42,8 +66,8 @@ fn main() {
     let use_repl = false;
 
     if use_repl {
-        repl()
+        repl();
     } else {
-        run_file("/Users/dj/Code/rlox/data/test.rlox")
+        run_file("/Users/dj/Code/rlox/data/test.rlox");
     }
 }
