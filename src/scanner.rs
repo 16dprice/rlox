@@ -77,7 +77,7 @@ impl Scanner {
             source,
             start: 0,
             current: 0,
-            line: 0,
+            line: 1,
         }
     }
 
