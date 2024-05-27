@@ -60,6 +60,10 @@ pub struct Token {
     line: usize,
 }
 
+fn is_digit(c: char) -> bool {
+    c >= '0' && c <= '9'
+}
+
 pub struct Scanner {
     pub source: String,
     start: usize,
@@ -90,24 +94,32 @@ impl Scanner {
         self.current + 1 == self.source.len()
     }
 
-    fn advance(&mut self) -> char {
-        self.current += 1;
+    fn get_char_at_index(&self, index: usize) -> char {
         return self
             .source
             .chars()
-            .nth(self.current - 1)
-            .expect(format!("Couldn't get char at index {}", self.current - 1).as_str());
+            .nth(index)
+            .expect(format!("Couldn't get char at index {}", index).as_str());
+    }
+
+    fn advance(&mut self) -> char {
+        self.current += 1;
+        return self.get_char_at_index(self.current - 1);
     }
 
     // This will probably be incredibly slow over time since it converts
     // the source to a list of chars every time. It may be more economical
     // to just instantiate a vector of chars when the `new` func is called.
     fn peek(&self) -> char {
-        return self
-            .source
-            .chars()
-            .nth(self.current)
-            .expect(format!("Couldn't get char at index {}", self.current).as_str());
+        return self.get_char_at_index(self.current);
+    }
+
+    fn peek_next(&self) -> Option<char> {
+        if self.is_at_end() {
+            return None;
+        }
+
+        return Some(self.get_char_at_index(self.current + 1));
     }
 
     fn skip_whitespace(&mut self) {
@@ -137,18 +149,52 @@ impl Scanner {
         }
     }
 
+    fn number(&mut self) -> Token {
+        //     while (isDigit(peek()))
+        //     advance();
+
+        // if (peek() == '.' && isDigit(peekNext()))
+        // {
+        //     advance();
+        //     while (isDigit(peek()))
+        //         advance();
+        // }
+
+        // return makeToken(TOKEN_NUMBER);
+        while is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' {
+            match self.peek_next() {
+                None => {}
+                Some(c) => {
+                    if is_digit(c) {
+                        self.advance();
+                        while is_digit(self.peek()) {
+                            self.advance();
+                        }
+                    }
+                }
+            }
+        }
+
+        return self.make_token(TokenType::Number);
+    }
+
     pub fn scan_token(&mut self) -> Token {
+        self.skip_whitespace();
+        self.start = self.current;
+
         if self.is_at_end() {
             return self.make_token(TokenType::Eof);
         }
 
-        self.skip_whitespace();
-
-        self.start = self.current;
-
-        let token = self.make_token(TokenType::And);
-        self.advance();
-
-        return token;
+        let c = self.advance();
+        if is_digit(c) {
+            return self.number();
+        } else {
+            return self.make_token(TokenType::And);
+        }
     }
 }
