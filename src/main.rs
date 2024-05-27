@@ -4,16 +4,22 @@ mod value;
 
 use chunk::{Chunk, OpCode};
 use debug::disassemble_chunk;
+use std::io::{self, Write};
 
 fn main() {
-    let mut first_chunk = Chunk::new();
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
 
-    first_chunk.write_code(OpCode::Constant as u8, 1);
+        let mut input = String::new();
 
-    let constant_index = first_chunk.write_constant(1.5);
-    first_chunk.write_code(constant_index as u8, 1);
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
 
-    first_chunk.write_code(OpCode::Negate as u8, 1);
-
-    disassemble_chunk(&first_chunk, "First Chunk!");
+        let input = input.trim();
+        if input.eq_ignore_ascii_case("quit") {
+            break;
+        }
+    }
 }
