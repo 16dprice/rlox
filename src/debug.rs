@@ -28,6 +28,12 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
         return offset + 2;
     } else if instruction == OpCode::Add as u8 {
         return simple_instruction("OP_ADD", offset);
+    } else if instruction == OpCode::Subtract as u8 {
+        return simple_instruction("OP_SUBTRACT", offset);
+    } else if instruction == OpCode::Multiply as u8 {
+        return simple_instruction("OP_MULTIPLY", offset);
+    } else if instruction == OpCode::Divide as u8 {
+        return simple_instruction("OP_DIVIDE", offset);
     } else {
         println!("Unkown opcode {:0>4}", instruction);
         return offset + 1;

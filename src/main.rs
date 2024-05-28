@@ -5,6 +5,7 @@ mod scanner;
 mod value;
 mod vm;
 
+use debug::disassemble_chunk;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use vm::VM;
@@ -38,7 +39,7 @@ fn run_file(file_path: &str) {
     let mut vm = VM::new();
     let result = vm.interpret(source);
 
-    // disassemble_chunk(&compiler.compiling_chunk, "First Chunk!");
+    disassemble_chunk(&vm.chunk, "First Chunk!");
 }
 
 fn main() {

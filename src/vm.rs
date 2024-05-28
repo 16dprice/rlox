@@ -12,7 +12,7 @@ pub enum InterpretResult {
 }
 
 pub struct VM {
-    chunk: Chunk,
+    pub chunk: Chunk,
     ip: usize,
     pub value_stack: Vec<Value>,
 }
@@ -33,6 +33,23 @@ impl VM {
             };
         }
 
+        macro_rules! binary_op {
+            ($op:tt) => {
+                let b = self.value_stack.pop().expect("");
+                let a = self.value_stack.pop().expect("");
+
+                match b {
+                    Value::Number(num2) => match a {
+                        Value::Number(num1) => {
+                            self.value_stack.push(Value::Number(num1 $op num2));
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    },
+                    Value::Boolean(_) => return InterpretResult::RuntimeError,
+                }
+            };
+        }
+
         loop {
             let instruction = get_instruction!();
 
@@ -46,18 +63,13 @@ impl VM {
 
                 self.value_stack.push(*value);
             } else if instruction == OpCode::Add as u8 {
-                let b = self.value_stack.pop().expect("");
-                let a = self.value_stack.pop().expect("");
-
-                match b {
-                    Value::Number(num1) => match a {
-                        Value::Number(num2) => {
-                            self.value_stack.push(Value::Number(num1 + num2));
-                        }
-                        _ => return InterpretResult::RuntimeError,
-                    },
-                    Value::Boolean(_) => return InterpretResult::RuntimeError,
-                }
+                binary_op!(+);
+            } else if instruction == OpCode::Subtract as u8 {
+                binary_op!(-);
+            } else if instruction == OpCode::Multiply as u8 {
+                binary_op!(*);
+            } else if instruction == OpCode::Divide as u8 {
+                binary_op!(/);
             }
 
             self.ip += 1;

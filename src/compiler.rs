@@ -503,6 +503,9 @@ impl Compiler {
 
         match op_type {
             TokenType::Plus => self.emit_byte(OpCode::Add as u8),
+            TokenType::Slash => self.emit_byte(OpCode::Divide as u8),
+            TokenType::Star => self.emit_byte(OpCode::Multiply as u8),
+            TokenType::Minus => self.emit_byte(OpCode::Subtract as u8),
             _ => println!("need to implement binary opcode {:?}", op_type),
         }
     }
