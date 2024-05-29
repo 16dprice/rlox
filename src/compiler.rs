@@ -510,7 +510,10 @@ impl Compiler {
         }
     }
 
-    fn grouping(&mut self) {}
+    fn grouping(&mut self) {
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after expression.");
+    }
 
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
