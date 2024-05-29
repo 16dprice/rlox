@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::Compiler,
@@ -23,6 +25,14 @@ impl VM {
             chunk: Chunk::new(),
             ip: 0,
             value_stack: vec![],
+        }
+    }
+
+    fn is_falsey(self, value: Value) -> bool {
+        match value {
+            Value::Nil => return true,
+            Value::Boolean(tf) => return !tf,
+            _ => return false,
         }
     }
 
@@ -77,6 +87,22 @@ impl VM {
                 self.value_stack.push(Value::Boolean(false));
             } else if instruction == OpCode::Nil as u8 {
                 self.value_stack.push(Value::Nil);
+            } else if instruction == OpCode::Not as u8 {
+                let v = self.value_stack.pop();
+
+                match v {
+                    Some(Value::Boolean(tf)) => self.value_stack.push(Value::Boolean(!tf)),
+                    Some(Value::Nil) => self.value_stack.push(Value::Boolean(true)),
+                    Some(Value::Number(_n)) => self.value_stack.push(Value::Boolean(false)),
+                    _ => return InterpretResult::RuntimeError,
+                }
+            } else if instruction == OpCode::Negate as u8 {
+                let v = self.value_stack.pop();
+
+                match v {
+                    Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
+                    _ => return InterpretResult::RuntimeError,
+                }
             }
 
             self.ip += 1;

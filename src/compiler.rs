@@ -501,7 +501,19 @@ impl Compiler {
         }
     }
 
-    fn unary(&mut self) {}
+    fn unary(&mut self) {
+        let op_type = self.parser.previous.token_type as u8;
+
+        self.parse_precedence(Precedence::Unary);
+
+        if op_type == TokenType::Bang as u8 {
+            self.emit_byte(OpCode::Not as u8);
+        } else if op_type == TokenType::Minus as u8 {
+            self.emit_byte(OpCode::Negate as u8);
+        }
+
+        return;
+    }
 
     fn binary(&mut self) {
         let op_type = self.parser.previous.token_type;
