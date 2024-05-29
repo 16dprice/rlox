@@ -466,7 +466,22 @@ impl Compiler {
         }
     }
 
-    fn literal(&mut self) {}
+    fn literal(&mut self) {
+        let token = self.parser.previous.token_type as u8;
+        let true_ = TokenType::True as u8;
+        let false_ = TokenType::False as u8;
+        let nil_ = TokenType::Nil as u8;
+
+        if token == true_ {
+            self.emit_byte(OpCode::True as u8);
+        } else if token == false_ {
+            self.emit_byte(OpCode::False as u8);
+        } else if token == nil_ {
+            self.emit_byte(OpCode::Nil as u8);
+        }
+
+        return;
+    }
 
     fn string(&mut self) {}
 

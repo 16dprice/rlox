@@ -46,6 +46,7 @@ impl VM {
                         _ => return InterpretResult::RuntimeError,
                     },
                     Value::Boolean(_) => return InterpretResult::RuntimeError,
+                    Value::Nil => return InterpretResult::RuntimeError
                 }
             };
         }
@@ -70,6 +71,12 @@ impl VM {
                 binary_op!(*);
             } else if instruction == OpCode::Divide as u8 {
                 binary_op!(/);
+            } else if instruction == OpCode::True as u8 {
+                self.value_stack.push(Value::Boolean(true));
+            } else if instruction == OpCode::False as u8 {
+                self.value_stack.push(Value::Boolean(false));
+            } else if instruction == OpCode::Nil as u8 {
+                self.value_stack.push(Value::Nil);
             }
 
             self.ip += 1;
