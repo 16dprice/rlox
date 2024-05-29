@@ -445,6 +445,11 @@ impl Compiler {
         }
     }
 
+    fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
+        self.emit_byte(byte1);
+        self.emit_byte(byte2);
+    }
+
     fn emit_byte(&mut self, byte: u8) {
         self.compiling_chunk
             .write_code(byte, self.parser.previous.line);
@@ -533,6 +538,12 @@ impl Compiler {
             TokenType::Slash => self.emit_byte(OpCode::Divide as u8),
             TokenType::Star => self.emit_byte(OpCode::Multiply as u8),
             TokenType::Minus => self.emit_byte(OpCode::Subtract as u8),
+            TokenType::BangEqual => self.emit_bytes(OpCode::Equal as u8, OpCode::Not as u8),
+            TokenType::EqualEqual => self.emit_byte(OpCode::Equal as u8),
+            TokenType::Greater => self.emit_byte(OpCode::Greater as u8),
+            TokenType::GreaterEqual => self.emit_bytes(OpCode::Less as u8, OpCode::Not as u8),
+            TokenType::Less => self.emit_byte(OpCode::Less as u8),
+            TokenType::LessEqual => self.emit_bytes(OpCode::Greater as u8, OpCode::Not as u8),
             _ => println!("need to implement binary opcode {:?}", op_type),
         }
     }

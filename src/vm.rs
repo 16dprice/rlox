@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::Compiler,
@@ -28,7 +26,7 @@ impl VM {
         }
     }
 
-    fn is_falsey(self, value: Value) -> bool {
+    fn is_falsey(&self, value: Value) -> bool {
         match value {
             Value::Nil => return true,
             Value::Boolean(tf) => return !tf,
@@ -91,9 +89,7 @@ impl VM {
                 let v = self.value_stack.pop();
 
                 match v {
-                    Some(Value::Boolean(tf)) => self.value_stack.push(Value::Boolean(!tf)),
-                    Some(Value::Nil) => self.value_stack.push(Value::Boolean(true)),
-                    Some(Value::Number(_n)) => self.value_stack.push(Value::Boolean(false)),
+                    Some(value) => self.value_stack.push(Value::Boolean(self.is_falsey(value))),
                     _ => return InterpretResult::RuntimeError,
                 }
             } else if instruction == OpCode::Negate as u8 {
@@ -103,7 +99,35 @@ impl VM {
                     Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
                     _ => return InterpretResult::RuntimeError,
                 }
+            } else if instruction == OpCode::Equal as u8 {
+                let b = self.value_stack.pop();
+                let a = self.value_stack.pop();
+
+                match b {
+                    Some(Value::Number(num2)) => match a {
+                        Some(Value::Number(num1)) => {
+                            self.value_stack.push(Value::Boolean(num1 == num2))
+                        }
+                        None => return InterpretResult::RuntimeError,
+                        _ => self.value_stack.push(Value::Boolean(false)),
+                    },
+                    Some(Value::Boolean(tf2)) => match a {
+                        Some(Value::Boolean(tf1)) => {
+                            self.value_stack.push(Value::Boolean(tf1 == tf2))
+                        }
+                        None => return InterpretResult::RuntimeError,
+                        _ => self.value_stack.push(Value::Boolean(false)),
+                    },
+                    Some(Value::Nil) => match a {
+                        Some(Value::Nil) => self.value_stack.push(Value::Boolean(true)),
+                        None => return InterpretResult::RuntimeError,
+                        _ => self.value_stack.push(Value::Boolean(false)),
+                    },
+                    None => return InterpretResult::RuntimeError,
+                }
             }
+
+            // TODO: handle Greater and Less OpCodes
 
             self.ip += 1;
         }
