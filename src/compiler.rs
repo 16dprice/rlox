@@ -643,3 +643,42 @@ impl Compiler {
         return !self.parser.had_error;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::value::Value;
+
+    use super::*;
+
+    #[test]
+    fn basic_arithmetic_opcodes() {
+        let source = String::from("1 + 2");
+
+        let chunk = Chunk::new();
+        let mut compiler = Compiler::new(source, chunk);
+
+        let compile_result = compiler.compile(None);
+
+        assert_eq!(compile_result, true);
+
+        let two = compiler.compiling_chunk.constants.pop();
+        let one = compiler.compiling_chunk.constants.pop();
+
+        match two {
+            Some(Value::Number(n)) => {
+                if n != 2.0 {
+                    panic!("Expected 2.0, got {}", n)
+                }
+            }
+            _ => panic!("Expected number, got {:?}", two),
+        }
+        match one {
+            Some(Value::Number(n)) => {
+                if n != 1.0 {
+                    panic!("Expected 1.0, got {}", n)
+                }
+            }
+            _ => panic!("Expected number, got {:?}", two),
+        }
+    }
+}
