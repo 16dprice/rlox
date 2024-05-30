@@ -64,7 +64,6 @@ impl VM {
             let instruction = get_instruction!();
 
             if instruction == OpCode::Return as u8 {
-                println!("{:?}", self.value_stack.pop());
                 return InterpretResult::Ok;
             } else if instruction == OpCode::Constant as u8 {
                 self.ip += 1;
@@ -132,6 +131,32 @@ impl VM {
                     },
                     None => return InterpretResult::RuntimeError,
                 }
+            } else if instruction == OpCode::Greater as u8 {
+                let b = self.value_stack.pop();
+                let a = self.value_stack.pop();
+
+                match b {
+                    Some(Value::Number(num2)) => match a {
+                        Some(Value::Number(num1)) => {
+                            self.value_stack.push(Value::Boolean(num1 > num2))
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    },
+                    _ => return InterpretResult::RuntimeError,
+                }
+            } else if instruction == OpCode::Less as u8 {
+                let b = self.value_stack.pop();
+                let a = self.value_stack.pop();
+
+                match b {
+                    Some(Value::Number(num2)) => match a {
+                        Some(Value::Number(num1)) => {
+                            self.value_stack.push(Value::Boolean(num1 < num2))
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    },
+                    _ => return InterpretResult::RuntimeError,
+                }
             }
 
             // TODO: handle Greater and Less OpCodes
@@ -152,5 +177,63 @@ impl VM {
         self.chunk = compiler.compiling_chunk;
 
         return self.run();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_last_value_of_value_stack(source: String) -> Option<Value> {
+        let source = String::from(source);
+
+        let mut vm = VM::new();
+        vm.interpret(source);
+
+        return vm.value_stack.pop();
+    }
+
+    #[test]
+    fn basic_arithmetic() {
+        let last_value = get_last_value_of_value_stack(String::from("1 + 2"));
+
+        match last_value {
+            Some(Value::Number(n)) => {
+                if n != 3.0 {
+                    panic!("Expected 3.0, got {}", n);
+                }
+            }
+            _ => panic!("Expected 3.0, got {:?}", last_value),
+        }
+    }
+
+    #[test]
+    fn simple_greater_than() {
+        let last_value = get_last_value_of_value_stack(String::from("2 > 3"));
+        match last_value {
+            Some(Value::Boolean(false)) => {}
+            _ => panic!("Expected false, got {:?}", last_value),
+        }
+
+        let last_value = get_last_value_of_value_stack(String::from("3 > 2"));
+        match last_value {
+            Some(Value::Boolean(true)) => {}
+            _ => panic!("Expected true, got {:?}", last_value),
+        }
+    }
+
+    #[test]
+    fn simple_less_than() {
+        let last_value = get_last_value_of_value_stack(String::from("3 < 2"));
+        match last_value {
+            Some(Value::Boolean(false)) => {}
+            _ => panic!("Expected false, got {:?}", last_value),
+        }
+
+        let last_value = get_last_value_of_value_stack(String::from("2 < 3"));
+        match last_value {
+            Some(Value::Boolean(true)) => {}
+            _ => panic!("Expected true, got {:?}", last_value),
+        }
     }
 }
