@@ -488,7 +488,16 @@ impl Compiler {
         return;
     }
 
-    fn string(&mut self) {}
+    fn string(&mut self) {
+        self.emit_byte(OpCode::Constant as u8);
+
+        let start = self.parser.previous.start + 1;
+        let end = start + self.parser.previous.length - 2;
+        let lexeme = &self.scanner.source[start..end];
+
+        let constant_index = self.compiling_chunk.write_string(String::from(lexeme));
+        self.emit_byte(constant_index as u8);
+    }
 
     fn number(&mut self) {
         self.emit_byte(OpCode::Constant as u8);

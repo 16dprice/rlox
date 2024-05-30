@@ -44,4 +44,9 @@ impl Chunk {
         self.constants.push(Value::Number(constant));
         return self.constants.len() - 1;
     }
+
+    pub fn write_string(&mut self, s: String) -> usize {
+        self.constants.push(Value::String(s));
+        return self.constants.len() - 1;
+    }
 }

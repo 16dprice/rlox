@@ -54,7 +54,8 @@ impl VM {
                         _ => return InterpretResult::RuntimeError,
                     },
                     Value::Boolean(_) => return InterpretResult::RuntimeError,
-                    Value::Nil => return InterpretResult::RuntimeError
+                    Value::Nil => return InterpretResult::RuntimeError,
+                    Value::String(_) => return InterpretResult::RuntimeError,
                 }
             };
         }
@@ -70,7 +71,7 @@ impl VM {
                 let constant_index = get_instruction!();
                 let value = &self.chunk.constants[constant_index as usize];
 
-                self.value_stack.push(*value);
+                self.value_stack.push(value.clone());
             } else if instruction == OpCode::Add as u8 {
                 binary_op!(+);
             } else if instruction == OpCode::Subtract as u8 {
@@ -121,6 +122,12 @@ impl VM {
                     Some(Value::Nil) => match a {
                         Some(Value::Nil) => self.value_stack.push(Value::Boolean(true)),
                         None => return InterpretResult::RuntimeError,
+                        _ => self.value_stack.push(Value::Boolean(false)),
+                    },
+                    Some(Value::String(s2)) => match a {
+                        Some(Value::String(s1)) => {
+                            self.value_stack.push(Value::Boolean(s1.eq(&s2)));
+                        }
                         _ => self.value_stack.push(Value::Boolean(false)),
                     },
                     None => return InterpretResult::RuntimeError,
