@@ -25,6 +25,14 @@ fn repl() {
         if input.eq_ignore_ascii_case("quit") {
             break;
         }
+
+        let mut vm = VM::new();
+        vm.interpret(String::from(input));
+
+        disassemble_chunk(&vm.chunk, "Repl chunk");
+
+        let value_stack_top = vm.value_stack.pop();
+        println!("Top of VM Value Stack - {:?}", value_stack_top);
     }
 }
 
@@ -43,7 +51,7 @@ fn run_file(file_path: &str) {
 }
 
 fn main() {
-    let use_repl = false;
+    let use_repl = true;
 
     if use_repl {
         repl();

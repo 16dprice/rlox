@@ -43,19 +43,20 @@ impl VM {
 
         macro_rules! binary_op {
             ($op:tt) => {
-                let b = self.value_stack.pop().expect("");
-                let a = self.value_stack.pop().expect("");
+                let b = self.value_stack.pop();
+                let a = self.value_stack.pop();
 
                 match b {
-                    Value::Number(num2) => match a {
-                        Value::Number(num1) => {
+                    Some(Value::Number(num2)) => match a {
+                        Some(Value::Number(num1)) => {
                             self.value_stack.push(Value::Number(num1 $op num2));
                         }
                         _ => return InterpretResult::RuntimeError,
                     },
-                    Value::Boolean(_) => return InterpretResult::RuntimeError,
-                    Value::Nil => return InterpretResult::RuntimeError,
-                    Value::String(_) => return InterpretResult::RuntimeError,
+                    Some(Value::Boolean(_)) => return InterpretResult::RuntimeError,
+                    Some(Value::Nil) => return InterpretResult::RuntimeError,
+                    Some(Value::String(_)) => return InterpretResult::RuntimeError,
+                    None => return InterpretResult::RuntimeError,
                 }
             };
         }
@@ -72,6 +73,7 @@ impl VM {
 
                 self.value_stack.push(value.clone());
             } else if instruction == OpCode::Add as u8 {
+                // TODO: implement string concatenation
                 binary_op!(+);
             } else if instruction == OpCode::Subtract as u8 {
                 binary_op!(-);
@@ -158,8 +160,6 @@ impl VM {
                     _ => return InterpretResult::RuntimeError,
                 }
             }
-
-            // TODO: handle Greater and Less OpCodes
 
             self.ip += 1;
         }
