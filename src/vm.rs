@@ -73,8 +73,27 @@ impl VM {
 
                 self.value_stack.push(value.clone());
             } else if instruction == OpCode::Add as u8 {
-                // TODO: implement string concatenation
-                binary_op!(+);
+                let b = self.value_stack.pop();
+                let a = self.value_stack.pop();
+
+                match b {
+                    Some(Value::Number(num2)) => match a {
+                        Some(Value::Number(num1)) => {
+                            self.value_stack.push(Value::Number(num1 + num2));
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    },
+                    Some(Value::String(s2)) => match a {
+                        Some(Value::String(s1)) => {
+                            self.value_stack
+                                .push(Value::String(format!("{}{}", s1, s2)));
+                        }
+                        _ => return InterpretResult::RuntimeError,
+                    },
+                    Some(Value::Boolean(_)) => return InterpretResult::RuntimeError,
+                    Some(Value::Nil) => return InterpretResult::RuntimeError,
+                    None => return InterpretResult::RuntimeError,
+                }
             } else if instruction == OpCode::Subtract as u8 {
                 binary_op!(-);
             } else if instruction == OpCode::Multiply as u8 {
@@ -234,6 +253,21 @@ mod tests {
         match last_value {
             Some(Value::Boolean(true)) => {}
             _ => panic!("Expected true, got {:?}", last_value),
+        }
+    }
+
+    #[test]
+    fn string_concatenation() {
+        let last_value =
+            get_last_value_of_value_stack(String::from("\"one \" + \"two \" + \"three\""));
+
+        match last_value {
+            Some(Value::String(s)) => {
+                if !s.eq("one two three") {
+                    panic!("Expected 'one two three', got {:?}", s);
+                }
+            }
+            _ => panic!("Expected 'one two three', got {:?}", last_value),
         }
     }
 }
