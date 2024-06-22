@@ -5,7 +5,10 @@ mod scanner;
 mod value;
 mod vm;
 
-use debug::disassemble_chunk;
+use chunk::Chunk;
+use compiler::Compiler;
+use debug::print_debug::disassemble_chunk;
+use debug::write_debug::write_chunk_to_file;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use vm::VM;
@@ -50,12 +53,34 @@ fn run_file(file_path: &str) {
     disassemble_chunk(&vm.chunk, "First Chunk!");
 }
 
+fn debug_to_file(file_path: &str) {
+    let mut file =
+        File::open(file_path).expect(format!("Could not open file {}", file_path).as_str());
+    let mut source = String::new();
+
+    file.read_to_string(&mut source)
+        .expect("Could not write file to string");
+
+    let chunk = Chunk::new();
+    let mut compiler = Compiler::new(source, chunk);
+
+    if !compiler.compile(None) {
+        return;
+    }
+
+    let output_path = "./data/debug.txt";
+    write_chunk_to_file(&compiler.compiling_chunk, output_path);
+}
+
 fn main() {
     let use_repl = true;
 
-    if use_repl {
-        repl();
-    } else {
-        run_file("./data/test.rlox");
-    }
+    debug_to_file("./data/test.rlox");
+    // run_file("./data/test.rlox");
+
+    // if use_repl {
+    //     repl();
+    // } else {
+    //     run_file("./data/test.rlox");
+    // }
 }
