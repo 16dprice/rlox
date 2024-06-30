@@ -1,1 +1,1 @@
-"abcd" == "bcd"
+print 3 < 2;

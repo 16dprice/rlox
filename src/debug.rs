@@ -28,35 +28,63 @@ pub mod print_debug {
             print!("LINE - {:0>4} ", chunk.lines[offset]);
         }
 
-        let instruction = chunk.code[offset];
+        let instruction = OpCode::from_u8(chunk.code[offset]).unwrap();
 
-        if instruction == OpCode::Return as u8 {
-            println!("OP_RETURN");
-            return offset + 1;
-        } else if instruction == OpCode::Constant as u8 {
-            let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-            print!("'");
-            print!("{}", get_value_debug_string(constant));
-            println!("'");
+        match instruction {
+            OpCode::Return => {
+                println!("OP_RETURN");
+                return offset + 1;
+            }
+            OpCode::Constant => {
+                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                print!("'");
+                print!("{}", get_value_debug_string(constant));
+                println!("'");
 
-            return offset + 2;
-        } else if instruction == OpCode::Add as u8 {
-            return simple_instruction("OP_ADD", offset);
-        } else if instruction == OpCode::Subtract as u8 {
-            return simple_instruction("OP_SUBTRACT", offset);
-        } else if instruction == OpCode::Multiply as u8 {
-            return simple_instruction("OP_MULTIPLY", offset);
-        } else if instruction == OpCode::Divide as u8 {
-            return simple_instruction("OP_DIVIDE", offset);
-        } else if instruction == OpCode::True as u8 {
-            return simple_instruction("OP_TRUE", offset);
-        } else if instruction == OpCode::False as u8 {
-            return simple_instruction("OP_FALSE", offset);
-        } else if instruction == OpCode::Nil as u8 {
-            return simple_instruction("OP_NIL", offset);
-        } else {
-            println!("Unkown opcode {:0>4}", instruction);
-            return offset + 1;
+                return offset + 2;
+            }
+            OpCode::Add => {
+                return simple_instruction("OP_ADD", offset);
+            }
+            OpCode::Subtract => {
+                return simple_instruction("OP_SUBTRACT", offset);
+            }
+            OpCode::Multiply => {
+                return simple_instruction("OP_MULTIPLY", offset);
+            }
+            OpCode::Divide => {
+                return simple_instruction("OP_DIVIDE", offset);
+            }
+            OpCode::True => {
+                return simple_instruction("OP_TRUE", offset);
+            }
+            OpCode::False => {
+                return simple_instruction("OP_FALSE", offset);
+            }
+            OpCode::Nil => {
+                return simple_instruction("OP_NIL", offset);
+            }
+            OpCode::Equal => {
+                return simple_instruction("OP_EQUAL", offset);
+            }
+            OpCode::Greater => {
+                return simple_instruction("OP_GREATER", offset);
+            }
+            OpCode::Less => {
+                return simple_instruction("OP_LESS", offset);
+            }
+            OpCode::Negate => {
+                return simple_instruction("OP_NEGATE", offset);
+            }
+            OpCode::Not => {
+                return simple_instruction("OP_NOT", offset);
+            }
+            OpCode::Pop => {
+                return simple_instruction("OP_POP", offset);
+            }
+            OpCode::Print => {
+                return simple_instruction("OP_PRINT", offset);
+            }
         }
     }
 

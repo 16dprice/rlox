@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::Compiler,
@@ -11,18 +13,33 @@ pub enum InterpretResult {
     RuntimeError,
 }
 
-pub struct VM {
-    pub chunk: Chunk,
-    ip: usize,
-    pub value_stack: Vec<Value>,
+pub trait ValueStack {
+    fn push(&mut self, value: Value);
+    fn pop(&mut self) -> Option<Value>;
 }
 
-impl VM {
-    pub fn new() -> VM {
+impl ValueStack for Vec<Value> {
+    fn push(&mut self, value: Value) {
+        self.push(value);
+    }
+
+    fn pop(&mut self) -> Option<Value> {
+        return self.pop();
+    }
+}
+
+pub struct VM<'a> {
+    pub chunk: Chunk,
+    ip: usize,
+    pub value_stack: &'a mut dyn ValueStack,
+}
+
+impl<'a> VM<'a> {
+    pub fn new(value_stack: &'a mut dyn ValueStack) -> VM<'a> {
         VM {
             chunk: Chunk::new(),
             ip: 0,
-            value_stack: vec![],
+            value_stack,
         }
     }
 
@@ -36,23 +53,27 @@ impl VM {
 
     fn print_value(&self, value: Value) {
         match value {
-            Value::String(s) => print!("{}", s),
-            Value::Number(n) => print!("{}", n),
-            Value::Boolean(b) => {
-                if b {
-                    print!("true");
-                } else {
-                    print!("false");
+            Value::String(s) => {
+                for i in s.split("\\n") {
+                    println!("{}", i);
                 }
             }
-            Value::Nil => print!("nil"),
+            Value::Number(n) => println!("{}", n),
+            Value::Boolean(b) => {
+                if b {
+                    println!("true");
+                } else {
+                    println!("false");
+                }
+            }
+            Value::Nil => println!("nil"),
         }
     }
 
     fn run(&mut self) -> InterpretResult {
         macro_rules! get_instruction {
             () => {
-                self.chunk.code[self.ip]
+                OpCode::from_u8(self.chunk.code[self.ip])
             };
         }
 
@@ -77,126 +98,143 @@ impl VM {
         }
 
         loop {
-            let instruction = get_instruction!();
+            let instruction = get_instruction!().unwrap();
 
-            if instruction == OpCode::Return as u8 {
-                return InterpretResult::Ok;
-            } else if instruction == OpCode::Constant as u8 {
-                self.ip += 1;
-                let constant_index = get_instruction!();
-                let value = &self.chunk.constants[constant_index as usize];
-
-                self.value_stack.push(value.clone());
-            } else if instruction == OpCode::Add as u8 {
-                let b = self.value_stack.pop();
-                let a = self.value_stack.pop();
-
-                match b {
-                    Some(Value::Number(num2)) => match a {
-                        Some(Value::Number(num1)) => {
-                            self.value_stack.push(Value::Number(num1 + num2));
-                        }
-                        _ => return InterpretResult::RuntimeError,
-                    },
-                    Some(Value::String(s2)) => match a {
-                        Some(Value::String(s1)) => {
-                            self.value_stack
-                                .push(Value::String(format!("{}{}", s1, s2)));
-                        }
-                        _ => return InterpretResult::RuntimeError,
-                    },
-                    Some(Value::Boolean(_)) => return InterpretResult::RuntimeError,
-                    Some(Value::Nil) => return InterpretResult::RuntimeError,
-                    None => return InterpretResult::RuntimeError,
+            match instruction {
+                OpCode::Return => {
+                    return InterpretResult::Ok;
                 }
-            } else if instruction == OpCode::Subtract as u8 {
-                binary_op!(-);
-            } else if instruction == OpCode::Multiply as u8 {
-                binary_op!(*);
-            } else if instruction == OpCode::Divide as u8 {
-                binary_op!(/);
-            } else if instruction == OpCode::True as u8 {
-                self.value_stack.push(Value::Boolean(true));
-            } else if instruction == OpCode::False as u8 {
-                self.value_stack.push(Value::Boolean(false));
-            } else if instruction == OpCode::Nil as u8 {
-                self.value_stack.push(Value::Nil);
-            } else if instruction == OpCode::Not as u8 {
-                let v = self.value_stack.pop();
+                OpCode::Constant => {
+                    self.ip += 1;
+                    let constant_index = get_instruction!().unwrap();
+                    let value = &self.chunk.constants[constant_index as usize];
 
-                match v {
-                    Some(value) => self.value_stack.push(Value::Boolean(self.is_falsey(value))),
-                    _ => return InterpretResult::RuntimeError,
+                    self.value_stack.push(value.clone());
                 }
-            } else if instruction == OpCode::Negate as u8 {
-                let v = self.value_stack.pop();
+                OpCode::Add => {
+                    let b = self.value_stack.pop();
+                    let a = self.value_stack.pop();
 
-                match v {
-                    Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
-                    _ => return InterpretResult::RuntimeError,
-                }
-            } else if instruction == OpCode::Equal as u8 {
-                let b = self.value_stack.pop();
-                let a = self.value_stack.pop();
-
-                match b {
-                    Some(Value::Number(num2)) => match a {
-                        Some(Value::Number(num1)) => {
-                            self.value_stack.push(Value::Boolean(num1 == num2))
-                        }
+                    match b {
+                        Some(Value::Number(num2)) => match a {
+                            Some(Value::Number(num1)) => {
+                                self.value_stack.push(Value::Number(num1 + num2));
+                            }
+                            _ => return InterpretResult::RuntimeError,
+                        },
+                        Some(Value::String(s2)) => match a {
+                            Some(Value::String(s1)) => {
+                                self.value_stack
+                                    .push(Value::String(format!("{}{}", s1, s2)));
+                            }
+                            _ => return InterpretResult::RuntimeError,
+                        },
+                        Some(Value::Boolean(_)) => return InterpretResult::RuntimeError,
+                        Some(Value::Nil) => return InterpretResult::RuntimeError,
                         None => return InterpretResult::RuntimeError,
-                        _ => self.value_stack.push(Value::Boolean(false)),
-                    },
-                    Some(Value::Boolean(tf2)) => match a {
-                        Some(Value::Boolean(tf1)) => {
-                            self.value_stack.push(Value::Boolean(tf1 == tf2))
-                        }
-                        None => return InterpretResult::RuntimeError,
-                        _ => self.value_stack.push(Value::Boolean(false)),
-                    },
-                    Some(Value::Nil) => match a {
-                        Some(Value::Nil) => self.value_stack.push(Value::Boolean(true)),
-                        None => return InterpretResult::RuntimeError,
-                        _ => self.value_stack.push(Value::Boolean(false)),
-                    },
-                    Some(Value::String(s2)) => match a {
-                        Some(Value::String(s1)) => {
-                            self.value_stack.push(Value::Boolean(s1.eq(&s2)));
-                        }
-                        _ => self.value_stack.push(Value::Boolean(false)),
-                    },
-                    None => return InterpretResult::RuntimeError,
+                    }
                 }
-            } else if instruction == OpCode::Greater as u8 {
-                let b = self.value_stack.pop();
-                let a = self.value_stack.pop();
+                OpCode::Subtract => {
+                    binary_op!(-);
+                }
+                OpCode::Multiply => {
+                    binary_op!(*);
+                }
+                OpCode::Divide => {
+                    binary_op!(/);
+                }
+                OpCode::True => {
+                    self.value_stack.push(Value::Boolean(true));
+                }
+                OpCode::False => {
+                    self.value_stack.push(Value::Boolean(false));
+                }
+                OpCode::Nil => {
+                    self.value_stack.push(Value::Nil);
+                }
+                OpCode::Not => {
+                    let v = self.value_stack.pop();
 
-                match b {
-                    Some(Value::Number(num2)) => match a {
-                        Some(Value::Number(num1)) => {
-                            self.value_stack.push(Value::Boolean(num1 > num2))
-                        }
+                    match v {
+                        Some(value) => self.value_stack.push(Value::Boolean(self.is_falsey(value))),
                         _ => return InterpretResult::RuntimeError,
-                    },
-                    _ => return InterpretResult::RuntimeError,
+                    }
                 }
-            } else if instruction == OpCode::Less as u8 {
-                let b = self.value_stack.pop();
-                let a = self.value_stack.pop();
+                OpCode::Negate => {
+                    let v = self.value_stack.pop();
 
-                match b {
-                    Some(Value::Number(num2)) => match a {
-                        Some(Value::Number(num1)) => {
-                            self.value_stack.push(Value::Boolean(num1 < num2))
-                        }
+                    match v {
+                        Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
                         _ => return InterpretResult::RuntimeError,
-                    },
-                    _ => return InterpretResult::RuntimeError,
+                    }
                 }
-            } else if instruction == OpCode::Print as u8 {
-                match self.value_stack.pop() {
+                OpCode::Equal => {
+                    let b = self.value_stack.pop();
+                    let a = self.value_stack.pop();
+
+                    match b {
+                        Some(Value::Number(num2)) => match a {
+                            Some(Value::Number(num1)) => {
+                                self.value_stack.push(Value::Boolean(num1 == num2))
+                            }
+                            None => return InterpretResult::RuntimeError,
+                            _ => self.value_stack.push(Value::Boolean(false)),
+                        },
+                        Some(Value::Boolean(tf2)) => match a {
+                            Some(Value::Boolean(tf1)) => {
+                                self.value_stack.push(Value::Boolean(tf1 == tf2))
+                            }
+                            None => return InterpretResult::RuntimeError,
+                            _ => self.value_stack.push(Value::Boolean(false)),
+                        },
+                        Some(Value::Nil) => match a {
+                            Some(Value::Nil) => self.value_stack.push(Value::Boolean(true)),
+                            None => return InterpretResult::RuntimeError,
+                            _ => self.value_stack.push(Value::Boolean(false)),
+                        },
+                        Some(Value::String(s2)) => match a {
+                            Some(Value::String(s1)) => {
+                                self.value_stack.push(Value::Boolean(s1.eq(&s2)));
+                            }
+                            _ => self.value_stack.push(Value::Boolean(false)),
+                        },
+                        None => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::Greater => {
+                    let b = self.value_stack.pop();
+                    let a = self.value_stack.pop();
+
+                    match b {
+                        Some(Value::Number(num2)) => match a {
+                            Some(Value::Number(num1)) => {
+                                self.value_stack.push(Value::Boolean(num1 > num2))
+                            }
+                            _ => return InterpretResult::RuntimeError,
+                        },
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::Less => {
+                    let b = self.value_stack.pop();
+                    let a = self.value_stack.pop();
+
+                    match b {
+                        Some(Value::Number(num2)) => match a {
+                            Some(Value::Number(num1)) => {
+                                self.value_stack.push(Value::Boolean(num1 < num2))
+                            }
+                            _ => return InterpretResult::RuntimeError,
+                        },
+                        _ => return InterpretResult::RuntimeError,
+                    }
+                }
+                OpCode::Print => match self.value_stack.pop() {
                     Some(v) => self.print_value(v),
                     _ => return InterpretResult::RuntimeError,
+                },
+                OpCode::Pop => {
+                    self.value_stack.pop();
                 }
             }
 
@@ -221,15 +259,45 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use super::*;
+
+    struct TestValueStack<'a> {
+        all_values: &'a mut Vec<Value>,
+        values: Vec<Value>,
+    }
+
+    impl<'a> ValueStack for TestValueStack<'a> {
+        fn push(&mut self, value: Value) {
+            self.all_values.push(value.clone());
+            self.values.push(value);
+        }
+
+        fn pop(&mut self) -> Option<Value> {
+            return self.values.pop();
+        }
+    }
+
+    impl<'a> TestValueStack<'a> {
+        pub fn new(all_values: &'a mut Vec<Value>) -> TestValueStack<'a> {
+            TestValueStack {
+                all_values,
+                values: vec![],
+            }
+        }
+    }
 
     fn get_last_value_of_value_stack(source: String) -> Option<Value> {
         let source = String::from(source);
 
-        let mut vm = VM::new();
+        let mut all_values = vec![];
+        let mut value_stack = TestValueStack::new(&mut all_values);
+
+        let mut vm = VM::new(&mut value_stack);
         vm.interpret(source);
 
-        return vm.value_stack.pop();
+        return value_stack.all_values.pop();
     }
 
     #[test]

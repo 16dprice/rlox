@@ -671,7 +671,9 @@ impl Compiler {
 
     fn statement(&mut self) {
         if self.match_token(TokenType::Print) {
-            todo!("print statement not yet implemented");
+            self.expression();
+            self.consume(TokenType::Semicolon, "Expect ';' after value.");
+            self.emit_byte(OpCode::Print as u8);
         } else if self.match_token(TokenType::If) {
             todo!("if statement not yet implemented");
         } else if self.match_token(TokenType::While) {
