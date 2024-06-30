@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn basic_arithmetic() {
-        let last_value = get_last_value_of_value_stack(String::from("1 + 2"));
+        let last_value = get_last_value_of_value_stack(String::from("1 + 2;"));
 
         match last_value {
             Some(Value::Number(n)) => {
@@ -248,13 +248,13 @@ mod tests {
 
     #[test]
     fn simple_greater_than() {
-        let last_value = get_last_value_of_value_stack(String::from("2 > 3"));
+        let last_value = get_last_value_of_value_stack(String::from("2 > 3;"));
         match last_value {
             Some(Value::Boolean(false)) => {}
             _ => panic!("Expected false, got {:?}", last_value),
         }
 
-        let last_value = get_last_value_of_value_stack(String::from("3 > 2"));
+        let last_value = get_last_value_of_value_stack(String::from("3 > 2;"));
         match last_value {
             Some(Value::Boolean(true)) => {}
             _ => panic!("Expected true, got {:?}", last_value),
@@ -263,13 +263,13 @@ mod tests {
 
     #[test]
     fn simple_less_than() {
-        let last_value = get_last_value_of_value_stack(String::from("3 < 2"));
+        let last_value = get_last_value_of_value_stack(String::from("3 < 2;"));
         match last_value {
             Some(Value::Boolean(false)) => {}
             _ => panic!("Expected false, got {:?}", last_value),
         }
 
-        let last_value = get_last_value_of_value_stack(String::from("2 < 3"));
+        let last_value = get_last_value_of_value_stack(String::from("2 < 3;"));
         match last_value {
             Some(Value::Boolean(true)) => {}
             _ => panic!("Expected true, got {:?}", last_value),
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn string_concatenation() {
         let last_value =
-            get_last_value_of_value_stack(String::from("\"one \" + \"two \" + \"three\""));
+            get_last_value_of_value_stack(String::from("\"one \" + \"two \" + \"three\";"));
 
         match last_value {
             Some(Value::String(s)) => {

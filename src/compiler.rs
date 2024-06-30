@@ -728,7 +728,7 @@ mod tests {
 
     #[test]
     fn basic_arithmetic_opcodes() {
-        let source = String::from("1 + 2");
+        let source = String::from("1 + 2;");
 
         let chunk = Chunk::new();
         let mut compiler = Compiler::new(source, chunk);
