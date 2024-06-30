@@ -471,6 +471,18 @@ impl Compiler {
         }
     }
 
+    fn check(&self, token_type: TokenType) -> bool {
+        return self.parser.current.token_type as u8 == token_type as u8;
+    }
+
+    fn match_token(&mut self, token_type: TokenType) -> bool {
+        if !self.check(token_type) {
+            return false;
+        }
+        self.advance();
+        return true;
+    }
+
     fn literal(&mut self) {
         let token = self.parser.previous.token_type as u8;
 
@@ -623,6 +635,72 @@ impl Compiler {
         self.parse_precedence(Precedence::Assignment);
     }
 
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::Semicolon, "Expect ';' after expression.");
+        self.emit_byte(OpCode::Pop as u8);
+    }
+
+    fn synchronize(&mut self) {
+        self.parser.panic_mode = false;
+
+        let synchronized_tokens: [u8; 8] = [
+            TokenType::Class as u8,
+            TokenType::Fun as u8,
+            TokenType::Var as u8,
+            TokenType::For as u8,
+            TokenType::If as u8,
+            TokenType::While as u8,
+            TokenType::Print as u8,
+            TokenType::Return as u8,
+        ];
+
+        while self.parser.current.token_type as u8 != TokenType::Eof as u8 {
+            if self.parser.previous.token_type as u8 == TokenType::Semicolon as u8 {
+                return;
+            }
+
+            let current_token_type = self.parser.current.token_type as u8;
+            if synchronized_tokens.contains(&current_token_type) {
+                return;
+            }
+
+            self.advance();
+        }
+    }
+
+    fn statement(&mut self) {
+        if self.match_token(TokenType::Print) {
+            todo!("print statement not yet implemented");
+        } else if self.match_token(TokenType::If) {
+            todo!("if statement not yet implemented");
+        } else if self.match_token(TokenType::While) {
+            todo!("while statement not yet implemented");
+        } else if self.match_token(TokenType::For) {
+            todo!("for statement not yet implemented");
+        } else if self.match_token(TokenType::LeftBrace) {
+            todo!("block statement not yet implemented");
+        } else {
+            self.expression_statement();
+        }
+    }
+
+    fn declaration(&mut self) {
+        if self.match_token(TokenType::Var) {
+            todo!("var token handling hasn't been implemented");
+        } else if self.match_token(TokenType::Fun) {
+            todo!("fun token handling hasn't been implemented");
+        } else if self.match_token(TokenType::Class) {
+            todo!("class token handling hasn't been implemented");
+        } else {
+            self.statement();
+        }
+
+        if self.parser.panic_mode {
+            self.synchronize();
+        }
+    }
+
     pub fn compile(&mut self, chunk: Option<Chunk>) -> bool {
         if let Some(c) = chunk {
             self.compiling_chunk = c;
@@ -632,9 +710,10 @@ impl Compiler {
         self.parser.panic_mode = false;
 
         self.advance();
-        self.expression();
 
+        self.declaration();
         self.consume(TokenType::Eof, "Expect end of expression.");
+
         self.end_compiler();
 
         return !self.parser.had_error;

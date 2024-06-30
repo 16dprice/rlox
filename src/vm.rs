@@ -34,6 +34,21 @@ impl VM {
         }
     }
 
+    fn print_value(&self, value: Value) {
+        match value {
+            Value::String(s) => print!("{}", s),
+            Value::Number(n) => print!("{}", n),
+            Value::Boolean(b) => {
+                if b {
+                    print!("true");
+                } else {
+                    print!("false");
+                }
+            }
+            Value::Nil => print!("nil"),
+        }
+    }
+
     fn run(&mut self) -> InterpretResult {
         macro_rules! get_instruction {
             () => {
@@ -176,6 +191,11 @@ impl VM {
                         }
                         _ => return InterpretResult::RuntimeError,
                     },
+                    _ => return InterpretResult::RuntimeError,
+                }
+            } else if instruction == OpCode::Print as u8 {
+                match self.value_stack.pop() {
+                    Some(v) => self.print_value(v),
                     _ => return InterpretResult::RuntimeError,
                 }
             }

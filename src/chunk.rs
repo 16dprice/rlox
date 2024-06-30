@@ -17,6 +17,8 @@ pub enum OpCode {
     Multiply,
     Divide,
     Not,
+    Print,
+    Pop,
 }
 
 #[derive(Debug)]
