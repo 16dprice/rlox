@@ -64,14 +64,14 @@ fn debug_to_file(file_path: &str) {
         .expect("Could not write file to string");
 
     let chunk = Chunk::new();
-    let mut compiler = Compiler::new(source, chunk);
+    let mut compiler = Compiler::new(source.clone(), chunk);
 
     if !compiler.compile(None) {
         return;
     }
 
     let output_path = "./data/debug.txt";
-    write_chunk_to_file(&compiler.compiling_chunk, output_path);
+    write_chunk_to_file(source, &compiler.compiling_chunk, output_path);
 }
 
 fn main() {

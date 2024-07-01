@@ -170,13 +170,22 @@ pub mod write_debug {
         }
     }
 
-    pub fn write_chunk_to_file(chunk: &Chunk, output_path: &str) {
+    pub fn write_chunk_to_file(source: String, chunk: &Chunk, output_path: &str) {
         let mut file = File::create(output_path)
             .expect(format!("Could not open file {}", output_path).as_str());
 
         let mut offset = 0;
         let mut debug_string: String;
+        let mut current_line = 0;
+        let source_lines: Vec<&str> = source.split('\n').collect();
+
         while offset < chunk.code.len() {
+            if chunk.lines[offset] != current_line {
+                current_line = chunk.lines[offset];
+                file.write_all(format!("\n\n{}\n\n", source_lines[current_line - 1]).as_bytes())
+                    .expect("Couldn't write to file");
+            }
+
             (debug_string, offset) = disassemble_instruction(chunk, offset);
 
             file.write_all(debug_string.as_bytes())
