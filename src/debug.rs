@@ -103,26 +103,71 @@ pub mod write_debug {
 
     use super::*;
 
+    fn simple_instruction(name: &str, offset: usize) -> (String, usize) {
+        return (format!("{}\n", name), offset + 1);
+    }
+
     fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (String, usize) {
-        let instruction = chunk.code[offset];
+        let instruction = OpCode::from_u8(chunk.code[offset]).unwrap();
 
-        if instruction == OpCode::Return as u8 {
-            return (String::from("OP_RETURN\n"), offset + 1);
-        } else if instruction == OpCode::Constant as u8 {
-            let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+        match instruction {
+            OpCode::Return => {
+                return simple_instruction("OP_RETURN", offset);
+            }
+            OpCode::Constant => {
+                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
 
-            return (
-                format!(
-                    "OP_CONSTANT\nCONSTANT: {}\n",
-                    get_value_debug_string(constant)
-                ),
-                offset + 2,
-            );
-        } else if instruction == OpCode::Equal as u8 {
-            return (String::from("OP_EQUAL\n"), offset + 1);
+                return (
+                    format!(
+                        "OP_CONSTANT\nCONSTANT: {}\n",
+                        get_value_debug_string(constant)
+                    ),
+                    offset + 2,
+                );
+            }
+            OpCode::Add => {
+                return simple_instruction("OP_ADD", offset);
+            }
+            OpCode::Subtract => {
+                return simple_instruction("OP_SUBTRACT", offset);
+            }
+            OpCode::Multiply => {
+                return simple_instruction("OP_MULTIPLY", offset);
+            }
+            OpCode::Divide => {
+                return simple_instruction("OP_DIVIDE", offset);
+            }
+            OpCode::True => {
+                return simple_instruction("OP_TRUE", offset);
+            }
+            OpCode::False => {
+                return simple_instruction("OP_FALSE", offset);
+            }
+            OpCode::Nil => {
+                return simple_instruction("OP_NIL", offset);
+            }
+            OpCode::Equal => {
+                return simple_instruction("OP_EQUAL", offset);
+            }
+            OpCode::Greater => {
+                return simple_instruction("OP_GREATER", offset);
+            }
+            OpCode::Less => {
+                return simple_instruction("OP_LESS", offset);
+            }
+            OpCode::Negate => {
+                return simple_instruction("OP_NEGATE", offset);
+            }
+            OpCode::Not => {
+                return simple_instruction("OP_NOT", offset);
+            }
+            OpCode::Pop => {
+                return simple_instruction("OP_POP", offset);
+            }
+            OpCode::Print => {
+                return simple_instruction("OP_PRINT", offset);
+            }
         }
-
-        return (String::from("asdf\n"), offset + 1);
     }
 
     pub fn write_chunk_to_file(chunk: &Chunk, output_path: &str) {

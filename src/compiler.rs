@@ -713,8 +713,9 @@ impl Compiler {
 
         self.advance();
 
-        self.declaration();
-        self.consume(TokenType::Eof, "Expect end of expression.");
+        while !self.match_token(TokenType::Eof) {
+            self.declaration();
+        }
 
         self.end_compiler();
 
