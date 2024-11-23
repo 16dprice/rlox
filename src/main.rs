@@ -11,6 +11,7 @@ use debug::print_debug::disassemble_chunk;
 use debug::write_debug::write_chunk_to_file;
 use std::fs::File;
 use std::io::{self, Read, Write};
+use value::Value;
 use vm::VM;
 
 fn repl() {
@@ -29,8 +30,7 @@ fn repl() {
             break;
         }
 
-        let mut value_stack = vec![];
-        let mut vm = VM::new(&mut value_stack);
+        let mut vm = VM::<Vec<Value>>::new();
         vm.interpret(String::from(input));
 
         disassemble_chunk(&vm.chunk, "Repl chunk");
@@ -48,8 +48,7 @@ fn run_file(file_path: &str) {
     file.read_to_string(&mut source)
         .expect("Could not write file to string");
 
-    let mut value_stack = vec![];
-    let mut vm = VM::new(&mut value_stack);
+    let mut vm = VM::<Vec<Value>>::new();
     vm.interpret(source);
 
     disassemble_chunk(&vm.chunk, "First Chunk!");
@@ -77,8 +76,8 @@ fn debug_to_file(file_path: &str) {
 fn main() {
     let use_repl = true;
 
-    debug_to_file("./data/test.rlox");
-    // run_file("./data/test.rlox");
+    // debug_to_file("./data/test.rlox");
+    run_file("./data/test.rlox");
 
     // if use_repl {
     //     repl();

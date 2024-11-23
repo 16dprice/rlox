@@ -1,5 +1,3 @@
-use std::vec;
-
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::Compiler,
@@ -28,14 +26,22 @@ impl ValueStack for Vec<Value> {
     }
 }
 
-pub struct VM<'a> {
+pub struct VM<T: ValueStack> {
     pub chunk: Chunk,
     ip: usize,
-    pub value_stack: &'a mut dyn ValueStack,
+    pub value_stack: T,
 }
 
-impl<'a> VM<'a> {
-    pub fn new(value_stack: &'a mut dyn ValueStack) -> VM<'a> {
+impl<T: ValueStack> VM<T> {
+    pub fn new() -> VM<Vec<Value>> {
+        VM {
+            chunk: Chunk::new(),
+            ip: 0,
+            value_stack: Vec::new(),
+        }
+    }
+
+    pub fn new_with_value_stack(value_stack: T) -> VM<T> {
         VM {
             chunk: Chunk::new(),
             ip: 0,
@@ -288,21 +294,21 @@ mod tests {
         }
     }
 
-    fn get_last_value_of_value_stack(source: String) -> Option<Value> {
+    fn get_last_value_on_value_stack(source: String, value_stack: TestValueStack) -> Option<Value> {
         let source = String::from(source);
+        let mut vm = VM::new_with_value_stack(value_stack);
 
-        let mut all_values = vec![];
-        let mut value_stack = TestValueStack::new(&mut all_values);
-
-        let mut vm = VM::new(&mut value_stack);
         vm.interpret(source);
 
-        return value_stack.all_values.pop();
+        return vm.value_stack.all_values.pop();
     }
 
     #[test]
     fn basic_arithmetic() {
-        let last_value = get_last_value_of_value_stack(String::from("1 + 2;"));
+        let last_value = get_last_value_on_value_stack(
+            String::from("1 + 2;"),
+            TestValueStack::new(&mut Vec::new()),
+        );
 
         match last_value {
             Some(Value::Number(n)) => {
@@ -316,13 +322,21 @@ mod tests {
 
     #[test]
     fn simple_greater_than() {
-        let last_value = get_last_value_of_value_stack(String::from("2 > 3;"));
+        // Expect false
+        let last_value = get_last_value_on_value_stack(
+            String::from("2 > 3;"),
+            TestValueStack::new(&mut Vec::new()),
+        );
         match last_value {
             Some(Value::Boolean(false)) => {}
             _ => panic!("Expected false, got {:?}", last_value),
         }
 
-        let last_value = get_last_value_of_value_stack(String::from("3 > 2;"));
+        // Expect true
+        let last_value = get_last_value_on_value_stack(
+            String::from("3 > 2;"),
+            TestValueStack::new(&mut Vec::new()),
+        );
         match last_value {
             Some(Value::Boolean(true)) => {}
             _ => panic!("Expected true, got {:?}", last_value),
@@ -331,13 +345,21 @@ mod tests {
 
     #[test]
     fn simple_less_than() {
-        let last_value = get_last_value_of_value_stack(String::from("3 < 2;"));
+        // Expect false
+        let last_value = get_last_value_on_value_stack(
+            String::from("3 < 2;"),
+            TestValueStack::new(&mut Vec::new()),
+        );
         match last_value {
             Some(Value::Boolean(false)) => {}
             _ => panic!("Expected false, got {:?}", last_value),
         }
 
-        let last_value = get_last_value_of_value_stack(String::from("2 < 3;"));
+        // Expect true
+        let last_value = get_last_value_on_value_stack(
+            String::from("2 < 3;"),
+            TestValueStack::new(&mut Vec::new()),
+        );
         match last_value {
             Some(Value::Boolean(true)) => {}
             _ => panic!("Expected true, got {:?}", last_value),
@@ -346,9 +368,10 @@ mod tests {
 
     #[test]
     fn string_concatenation() {
-        let last_value =
-            get_last_value_of_value_stack(String::from("\"one \" + \"two \" + \"three\";"));
-
+        let last_value = get_last_value_on_value_stack(
+            String::from("\"one \" + \"two \" + \"three\";"),
+            TestValueStack::new(&mut Vec::new()),
+        );
         match last_value {
             Some(Value::String(s)) => {
                 if !s.eq("one two three") {
