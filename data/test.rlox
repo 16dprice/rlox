@@ -1,4 +1,9 @@
 var a = 5;
 var b = 6;
 
+print "here";
+
+var c = b + "B";
+
+print c;
 print a;

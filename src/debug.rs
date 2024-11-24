@@ -8,7 +8,7 @@ fn get_value_debug_string(value: &Value) -> String {
         Value::Nil => "nil".to_string(),
         Value::Boolean(v) => format!("{}", v),
         Value::Number(v) => format!("{}", v),
-        Value::String(v) => format!("{}", v),
+        Value::String(v) => format!("'{}'", v),
     }
 }
 
@@ -37,9 +37,7 @@ pub mod print_debug {
             }
             OpCode::Constant => {
                 let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-                print!("'");
-                print!("{}", get_value_debug_string(constant));
-                println!("'");
+                println!("{}: {}", OpCode::Constant, get_value_debug_string(constant));
 
                 return offset + 2;
             }
@@ -87,17 +85,21 @@ pub mod print_debug {
             }
             OpCode::DefineGlobal => {
                 let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-                print!("'");
-                print!("{}", get_value_debug_string(constant));
-                println!("'");
+                println!(
+                    "{}: {}",
+                    OpCode::DefineGlobal,
+                    get_value_debug_string(constant)
+                );
 
                 return offset + 2;
             }
             OpCode::GetGlobal => {
                 let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-                print!("'");
-                print!("{}", get_value_debug_string(constant));
-                println!("'");
+                println!(
+                    "{}: {}",
+                    OpCode::GetGlobal,
+                    get_value_debug_string(constant)
+                );
 
                 return offset + 2;
             }

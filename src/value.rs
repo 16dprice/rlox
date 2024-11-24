@@ -16,16 +16,16 @@ impl fmt::Display for Value {
             }
             Value::Boolean(b) => {
                 if *b {
-                    write!(f, "Boolean: true")
+                    write!(f, "BOOLEAN: true")
                 } else {
-                    write!(f, "Boolean: false")
+                    write!(f, "BOOLEAN: false")
                 }
             }
             Value::Number(n) => {
-                write!(f, "Number: {}", n)
+                write!(f, "NUMBER: {}", n)
             }
             Value::String(s) => {
-                write!(f, "String: {}", s)
+                write!(f, "STRING: {}", s)
             }
         }
     }

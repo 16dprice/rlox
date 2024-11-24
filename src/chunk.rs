@@ -29,58 +29,58 @@ impl fmt::Display for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             OpCode::Return => {
-                write!(f, "Return")
+                write!(f, "OP_RETURN")
             }
             OpCode::Constant => {
-                write!(f, "Constant")
+                write!(f, "OP_CONSTANT")
             }
             OpCode::Nil => {
-                write!(f, "Nil")
+                write!(f, "OP_NIL")
             }
             OpCode::True => {
-                write!(f, "True")
+                write!(f, "OP_TRUE")
             }
             OpCode::False => {
-                write!(f, "False")
+                write!(f, "OP_FALSE")
             }
             OpCode::Equal => {
-                write!(f, "Equal")
+                write!(f, "OP_EQUAL")
             }
             OpCode::Greater => {
-                write!(f, "Greater")
+                write!(f, "OP_GREATER")
             }
             OpCode::Less => {
-                write!(f, "Less")
+                write!(f, "OP_LESS")
             }
             OpCode::Negate => {
-                write!(f, "Negate")
+                write!(f, "OP_NEGATE")
             }
             OpCode::Add => {
-                write!(f, "Add")
+                write!(f, "OP_ADD")
             }
             OpCode::Subtract => {
-                write!(f, "Subtract")
+                write!(f, "OP_SUBTRACT")
             }
             OpCode::Multiply => {
-                write!(f, "Multiply")
+                write!(f, "OP_MULTIPLY")
             }
             OpCode::Divide => {
-                write!(f, "Divide")
+                write!(f, "OP_DIVIDE")
             }
             OpCode::Not => {
-                write!(f, "Not")
+                write!(f, "OP_NOT")
             }
             OpCode::Print => {
-                write!(f, "Print")
+                write!(f, "OP_PRINT")
             }
             OpCode::Pop => {
-                write!(f, "Pop")
+                write!(f, "OP_POP")
             }
             OpCode::DefineGlobal => {
-                write!(f, "DefineGlobal")
+                write!(f, "OP_DEFINE_GLOBAL")
             }
             OpCode::GetGlobal => {
-                write!(f, "GetGlobal")
+                write!(f, "OP_GET_GLOBAL")
             }
         }
     }

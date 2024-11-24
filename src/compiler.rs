@@ -508,16 +508,15 @@ impl Compiler {
         self.emit_byte(constant_index as u8);
     }
 
-    fn namedVariable(&mut self, name: Token) {
-        let lexeme = &self.scanner.source[self.parser.previous.start
-            ..(self.parser.previous.start + self.parser.previous.length)];
+    fn named_variable(&mut self, name: Token) {
+        let lexeme = &self.scanner.source[name.start..(name.start + name.length)];
         let index = self.compiling_chunk.write_string(lexeme.to_owned());
 
         self.emit_bytes(OpCode::GetGlobal as u8, index as u8);
     }
 
     fn variable(&mut self) {
-        self.namedVariable(self.parser.previous)
+        self.named_variable(self.parser.previous)
     }
 
     fn number(&mut self) {

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
 use crate::{
     chunk::{Chunk, OpCode},
@@ -140,12 +140,18 @@ impl<T: ValueStack> VM<T> {
                             Some(Value::Number(num1)) => {
                                 self.value_stack.push(Value::Number(num1 + num2));
                             }
+                            Some(Value::String(s1)) => self
+                                .value_stack
+                                .push(Value::String(format!("{}{}", s1, num2))),
                             _ => return InterpretResult::RuntimeError,
                         },
                         Some(Value::String(s2)) => match a {
                             Some(Value::String(s1)) => {
                                 self.value_stack
                                     .push(Value::String(format!("{}{}", s1, s2)));
+                            }
+                            Some(Value::Number(n)) => {
+                                self.value_stack.push(Value::String(format!("{}{}", n, s2)));
                             }
                             _ => return InterpretResult::RuntimeError,
                         },
