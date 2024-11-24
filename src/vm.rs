@@ -271,6 +271,27 @@ impl<T: ValueStack> VM<T> {
                         }
                     }
                 }
+                OpCode::GetGlobal => {
+                    let name = read_constant!();
+
+                    match name {
+                        Value::String(s) => {
+                            let optional_value = self.globals.get(s);
+                            match optional_value {
+                                Some(value) => {
+                                    self.value_stack.push(value.to_owned());
+                                }
+                                None => {
+                                    // TODO: Add better error handling here
+                                    return InterpretResult::RuntimeError;
+                                }
+                            }
+                        }
+                        _ => {
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
             }
 
             self.ip += 1;

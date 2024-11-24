@@ -22,6 +22,7 @@ pub enum OpCode {
     Print = 14,
     Pop = 15,
     DefineGlobal = 16,
+    GetGlobal = 17,
 }
 
 impl fmt::Display for OpCode {
@@ -78,6 +79,9 @@ impl fmt::Display for OpCode {
             OpCode::DefineGlobal => {
                 write!(f, "DefineGlobal")
             }
+            OpCode::GetGlobal => {
+                write!(f, "GetGlobal")
+            }
         }
     }
 }
@@ -102,6 +106,7 @@ impl OpCode {
             14 => Some(OpCode::Print),
             15 => Some(OpCode::Pop),
             16 => Some(OpCode::DefineGlobal),
+            17 => Some(OpCode::GetGlobal),
             _ => None,
         }
     }

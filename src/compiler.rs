@@ -234,7 +234,7 @@ impl Compiler {
         compiler.precedence_map.insert(
             TokenType::Identifier,
             ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::variable),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -506,6 +506,18 @@ impl Compiler {
 
         let constant_index = self.compiling_chunk.write_string(String::from(lexeme));
         self.emit_byte(constant_index as u8);
+    }
+
+    fn namedVariable(&mut self, name: Token) {
+        let lexeme = &self.scanner.source[self.parser.previous.start
+            ..(self.parser.previous.start + self.parser.previous.length)];
+        let index = self.compiling_chunk.write_string(lexeme.to_owned());
+
+        self.emit_bytes(OpCode::GetGlobal as u8, index as u8);
+    }
+
+    fn variable(&mut self) {
+        self.namedVariable(self.parser.previous)
     }
 
     fn number(&mut self) {
