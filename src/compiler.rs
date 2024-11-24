@@ -54,7 +54,7 @@ impl Precedence {
     }
 }
 
-type ParseFnPtr = fn(&mut Compiler) -> ();
+type ParseFnPtr = fn(&mut Compiler, bool) -> ();
 
 #[derive(Clone, Copy)]
 struct ParseRule {
@@ -483,7 +483,7 @@ impl Compiler {
         return true;
     }
 
-    fn literal(&mut self) {
+    fn literal(&mut self, _can_assign: bool) {
         let token = self.parser.previous.token_type as u8;
 
         if token == TokenType::True as u8 {
@@ -497,7 +497,7 @@ impl Compiler {
         return;
     }
 
-    fn string(&mut self) {
+    fn string(&mut self, _can_assign: bool) {
         self.emit_byte(OpCode::Constant as u8);
 
         let start = self.parser.previous.start + 1;
@@ -508,18 +508,23 @@ impl Compiler {
         self.emit_byte(constant_index as u8);
     }
 
-    fn named_variable(&mut self, name: Token) {
+    fn named_variable(&mut self, name: Token, can_assign: bool) {
         let lexeme = &self.scanner.source[name.start..(name.start + name.length)];
         let index = self.compiling_chunk.write_string(lexeme.to_owned());
 
-        self.emit_bytes(OpCode::GetGlobal as u8, index as u8);
+        if can_assign && self.match_token(TokenType::Equal) {
+            self.expression();
+            self.emit_bytes(OpCode::SetGlobal as u8, index as u8);
+        } else {
+            self.emit_bytes(OpCode::GetGlobal as u8, index as u8);
+        }
     }
 
-    fn variable(&mut self) {
-        self.named_variable(self.parser.previous)
+    fn variable(&mut self, can_assign: bool) {
+        self.named_variable(self.parser.previous, can_assign)
     }
 
-    fn number(&mut self) {
+    fn number(&mut self, _can_assign: bool) {
         self.emit_byte(OpCode::Constant as u8);
 
         let lexeme = &self.scanner.source[self.parser.previous.start
@@ -535,7 +540,7 @@ impl Compiler {
         }
     }
 
-    fn unary(&mut self) {
+    fn unary(&mut self, _can_assign: bool) {
         let op_type = self.parser.previous.token_type as u8;
 
         self.parse_precedence(Precedence::Unary);
@@ -549,7 +554,7 @@ impl Compiler {
         return;
     }
 
-    fn binary(&mut self) {
+    fn binary(&mut self, _can_assign: bool) {
         let op_type = self.parser.previous.token_type;
 
         let parse_rule = match self.precedence_map.get(&op_type).cloned() {
@@ -577,7 +582,7 @@ impl Compiler {
         }
     }
 
-    fn grouping(&mut self) {
+    fn grouping(&mut self, _can_assign: bool) {
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
@@ -608,7 +613,8 @@ impl Compiler {
             return;
         };
 
-        prefix_func(self);
+        let can_assign = precedence as u8 <= Precedence::Assignment as u8;
+        prefix_func(self, can_assign);
 
         loop {
             let parse_rule = match self
@@ -636,8 +642,12 @@ impl Compiler {
             self.advance();
 
             match parse_rule.infix {
-                Some(infix_func) => infix_func(self),
+                Some(infix_func) => infix_func(self, can_assign),
                 _ => return,
+            }
+
+            if can_assign && self.match_token(TokenType::Equal) {
+                self.error("Invalid assignment target.");
             }
         }
     }

@@ -103,6 +103,16 @@ pub mod print_debug {
 
                 return offset + 2;
             }
+            OpCode::SetGlobal => {
+                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                println!(
+                    "{}: {}",
+                    OpCode::SetGlobal,
+                    get_value_debug_string(constant)
+                );
+
+                return offset + 2;
+            }
         }
     }
 
@@ -202,6 +212,17 @@ pub mod write_debug {
                 return (
                     format!(
                         "OP_GET_GLOBAL\nOP_CONSTANT\nCONSTANT: {}\n",
+                        get_value_debug_string(constant)
+                    ),
+                    offset + 2,
+                );
+            }
+            OpCode::SetGlobal => {
+                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+
+                return (
+                    format!(
+                        "OP_SET_GLOBAL\nOP_CONSTANT\nCONSTANT: {}\n",
                         get_value_debug_string(constant)
                     ),
                     offset + 2,

@@ -294,6 +294,25 @@ impl<T: ValueStack> VM<T> {
                             }
                         }
                         _ => {
+                            // TODO: Add better error handling here
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::SetGlobal => {
+                    let name = read_constant!();
+
+                    match name {
+                        Value::String(s) => {
+                            if !self.globals.contains_key(s) {
+                                // TODO: Add better error handling here
+                                return InterpretResult::RuntimeError;
+                            }
+                            let value = self.value_stack.last_value().unwrap();
+                            self.globals.insert(s.to_owned(), value);
+                        }
+                        _ => {
+                            // TODO: Add better error handling here
                             return InterpretResult::RuntimeError;
                         }
                     }
