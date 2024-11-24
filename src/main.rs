@@ -76,7 +76,7 @@ fn debug_to_file(file_path: &str) {
 fn main() {
     let use_repl = true;
 
-    // debug_to_file("./data/test.rlox");
+    debug_to_file("./data/test.rlox");
     run_file("./data/test.rlox");
 
     // if use_repl {

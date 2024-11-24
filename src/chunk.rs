@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::value::Value;
 
 #[derive(Debug)]
@@ -19,6 +21,65 @@ pub enum OpCode {
     Not = 13,
     Print = 14,
     Pop = 15,
+    DefineGlobal = 16,
+}
+
+impl fmt::Display for OpCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            OpCode::Return => {
+                write!(f, "Return")
+            }
+            OpCode::Constant => {
+                write!(f, "Constant")
+            }
+            OpCode::Nil => {
+                write!(f, "Nil")
+            }
+            OpCode::True => {
+                write!(f, "True")
+            }
+            OpCode::False => {
+                write!(f, "False")
+            }
+            OpCode::Equal => {
+                write!(f, "Equal")
+            }
+            OpCode::Greater => {
+                write!(f, "Greater")
+            }
+            OpCode::Less => {
+                write!(f, "Less")
+            }
+            OpCode::Negate => {
+                write!(f, "Negate")
+            }
+            OpCode::Add => {
+                write!(f, "Add")
+            }
+            OpCode::Subtract => {
+                write!(f, "Subtract")
+            }
+            OpCode::Multiply => {
+                write!(f, "Multiply")
+            }
+            OpCode::Divide => {
+                write!(f, "Divide")
+            }
+            OpCode::Not => {
+                write!(f, "Not")
+            }
+            OpCode::Print => {
+                write!(f, "Print")
+            }
+            OpCode::Pop => {
+                write!(f, "Pop")
+            }
+            OpCode::DefineGlobal => {
+                write!(f, "DefineGlobal")
+            }
+        }
+    }
 }
 
 impl OpCode {
@@ -40,6 +101,7 @@ impl OpCode {
             13 => Some(OpCode::Not),
             14 => Some(OpCode::Print),
             15 => Some(OpCode::Pop),
+            16 => Some(OpCode::DefineGlobal),
             _ => None,
         }
     }
@@ -66,7 +128,7 @@ impl Chunk {
         self.lines.push(line);
     }
 
-    pub fn write_constant(&mut self, constant: f64) -> usize {
+    pub fn write_number(&mut self, constant: f64) -> usize {
         self.constants.push(Value::Number(constant));
         return self.constants.len() - 1;
     }

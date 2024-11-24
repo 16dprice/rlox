@@ -1,2 +1,2 @@
-print 3 < 2;
-print 5 + 5 / 2;
+var a = 5;
+var b = 6;

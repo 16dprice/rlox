@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::Compiler,
@@ -14,6 +16,7 @@ pub enum InterpretResult {
 pub trait ValueStack {
     fn push(&mut self, value: Value);
     fn pop(&mut self) -> Option<Value>;
+    fn last_value(&mut self) -> Option<Value>;
 }
 
 impl ValueStack for Vec<Value> {
@@ -24,12 +27,17 @@ impl ValueStack for Vec<Value> {
     fn pop(&mut self) -> Option<Value> {
         return self.pop();
     }
+
+    fn last_value(&mut self) -> Option<Value> {
+        return self.last().cloned();
+    }
 }
 
 pub struct VM<T: ValueStack> {
     pub chunk: Chunk,
     ip: usize,
     pub value_stack: T,
+    globals: HashMap<String, Value>,
 }
 
 impl<T: ValueStack> VM<T> {
@@ -38,6 +46,7 @@ impl<T: ValueStack> VM<T> {
             chunk: Chunk::new(),
             ip: 0,
             value_stack: Vec::new(),
+            globals: HashMap::new(),
         }
     }
 
@@ -46,6 +55,7 @@ impl<T: ValueStack> VM<T> {
             chunk: Chunk::new(),
             ip: 0,
             value_stack,
+            globals: HashMap::new(),
         }
     }
 
@@ -83,6 +93,14 @@ impl<T: ValueStack> VM<T> {
             };
         }
 
+        macro_rules! read_constant {
+            () => {{
+                self.ip += 1;
+                let constant_index = get_instruction!().unwrap();
+                &self.chunk.constants[constant_index as usize]
+            }};
+        }
+
         macro_rules! binary_op {
             ($op:tt) => {
                 let b = self.value_stack.pop();
@@ -111,11 +129,7 @@ impl<T: ValueStack> VM<T> {
                     return InterpretResult::Ok;
                 }
                 OpCode::Constant => {
-                    self.ip += 1;
-                    let constant_index = get_instruction!().unwrap();
-                    let value = &self.chunk.constants[constant_index as usize];
-
-                    self.value_stack.push(value.clone());
+                    self.value_stack.push(read_constant!().clone());
                 }
                 OpCode::Add => {
                     let b = self.value_stack.pop();
@@ -242,6 +256,21 @@ impl<T: ValueStack> VM<T> {
                 OpCode::Pop => {
                     self.value_stack.pop();
                 }
+                OpCode::DefineGlobal => {
+                    let name = read_constant!();
+
+                    match name {
+                        Value::String(s) => {
+                            let value = self.value_stack.last_value().unwrap();
+
+                            self.globals.insert(s.to_owned(), value);
+                            self.value_stack.pop();
+                        }
+                        _ => {
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
             }
 
             self.ip += 1;
@@ -282,6 +311,10 @@ mod tests {
 
         fn pop(&mut self) -> Option<Value> {
             return self.values.pop();
+        }
+
+        fn last_value(&mut self) -> Option<Value> {
+            return self.values.last().cloned();
         }
     }
 

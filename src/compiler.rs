@@ -516,7 +516,7 @@ impl Compiler {
 
         match lexeme.parse::<f64>() {
             Ok(value) => {
-                let constant_index = self.compiling_chunk.write_constant(value);
+                let constant_index = self.compiling_chunk.write_number(value);
                 self.emit_byte(constant_index as u8);
             }
             Err(e) => self
@@ -641,6 +641,36 @@ impl Compiler {
         self.emit_byte(OpCode::Pop as u8);
     }
 
+    fn parse_variable(&mut self, message: &str) -> u8 {
+        self.consume(TokenType::Identifier, message);
+
+        let lexeme = &self.scanner.source[self.parser.previous.start
+            ..(self.parser.previous.start + self.parser.previous.length)];
+
+        let index = self.compiling_chunk.write_string(lexeme.to_owned());
+        return index as u8;
+    }
+
+    fn define_variable(&mut self, global_index: u8) {
+        self.emit_bytes(OpCode::DefineGlobal as u8, global_index);
+    }
+
+    fn var_declaration(&mut self) {
+        let global_index = self.parse_variable("Expect variable name.");
+
+        if self.match_token(TokenType::Equal) {
+            self.expression();
+        } else {
+            self.emit_byte(OpCode::Nil as u8);
+        }
+        self.consume(
+            TokenType::Semicolon,
+            "Expect ';' after variable declaration.",
+        );
+
+        self.define_variable(global_index);
+    }
+
     fn synchronize(&mut self) {
         self.parser.panic_mode = false;
 
@@ -689,7 +719,7 @@ impl Compiler {
 
     fn declaration(&mut self) {
         if self.match_token(TokenType::Var) {
-            todo!("var token handling hasn't been implemented");
+            self.var_declaration();
         } else if self.match_token(TokenType::Fun) {
             todo!("fun token handling hasn't been implemented");
         } else if self.match_token(TokenType::Class) {
