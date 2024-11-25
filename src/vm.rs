@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::format};
+use std::collections::HashMap;
 
 use crate::{
     chunk::{Chunk, OpCode},
@@ -50,6 +50,7 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new_with_value_stack(value_stack: T) -> VM<T> {
         VM {
             chunk: Chunk::new(),

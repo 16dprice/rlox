@@ -14,6 +14,7 @@ use std::io::{self, Read, Write};
 use value::Value;
 use vm::VM;
 
+#[allow(dead_code)]
 fn repl() {
     loop {
         print!("> ");
@@ -74,7 +75,7 @@ fn debug_to_file(file_path: &str) {
 }
 
 fn main() {
-    let use_repl = true;
+    // let use_repl = true;
 
     debug_to_file("./data/test.rlox");
     run_file("./data/test.rlox");
