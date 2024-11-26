@@ -97,7 +97,7 @@ impl<T: ValueStack> VM<T> {
         macro_rules! read_constant {
             () => {{
                 self.ip += 1;
-                let constant_index = get_instruction!().unwrap();
+                let constant_index = self.chunk.code[self.ip];
                 &self.chunk.constants[constant_index as usize]
             }};
         }

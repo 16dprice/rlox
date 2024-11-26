@@ -1,6 +1,17 @@
-var a = 2;
-var b = 1;
+// f(x) = x * x
+// f'(x) = 2x
+// x_n+1 = x_n - f(x_n) / f'(x_n)
+//       = x_n - (x_n * x_n) / (2 * x_n)
 
-b = (a + b) / 2 - (b / a);
+var x0 = 0.5;
 
-print b;
+var x1 = x0 - (x0 * x0) / (2 * x0);
+var x2 = x1 - (x1 * x1) / (2 * x1);
+var x3 = x2 - (x2 * x2) / (2 * x2);
+var x4 = x3 - (x3 * x3) / (2 * x3);
+
+print "x0: " + x0;
+print "x1: " + x1;
+print "x2: " + x2;
+print "x3: " + x3;
+print "x4: " + x4;
