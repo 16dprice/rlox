@@ -6,7 +6,7 @@ use crate::chunk::Chunk;
 pub struct Function {
     pub arity: u8,
     pub chunk: Chunk,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 impl Function {
@@ -14,7 +14,7 @@ impl Function {
         Function {
             arity: 0,
             chunk: Chunk::new(),
-            name: String::from(""),
+            name: None,
         }
     }
 }
@@ -47,9 +47,14 @@ impl fmt::Display for Value {
             Value::String(s) => {
                 write!(f, "STRING: {}", s)
             }
-            Value::Function(func) => {
-                write!(f, "<fn {}>", func.name)
-            }
+            Value::Function(func) => match &func.name {
+                Some(name) => {
+                    write!(f, "<fn {}>", name)
+                }
+                None => {
+                    write!(f, "<script>")
+                }
+            },
         }
     }
 }

@@ -71,14 +71,13 @@ struct Local {
     depth: Option<u16>,
 }
 
-enum FunctionType {
+pub enum FunctionType {
     Function,
     Script,
 }
 
 pub struct Compiler {
     scanner: Scanner,
-    pub compiling_chunk: Chunk,
     parser: Parser,
     precedence_map: HashMap<TokenType, ParseRule>,
 
@@ -92,10 +91,9 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(source: String, chunk: Chunk) -> Compiler {
+    pub fn new(source: String, chunk: Chunk, function_type: FunctionType) -> Compiler {
         let mut compiler = Compiler {
             scanner: Scanner::new(source),
-            compiling_chunk: chunk,
             parser: Parser::new(),
             precedence_map: HashMap::new(),
 
@@ -107,8 +105,13 @@ impl Compiler {
             }; u8::MAX as usize + 1],
 
             function: Function::new(),
-            function_type: FunctionType::Script,
+            function_type,
         };
+
+        compiler.locals[0].depth = Some(0);
+        compiler.locals[0].name.start = 0;
+        compiler.locals[0].name.length = 0;
+        compiler.local_count += 1;
 
         compiler.precedence_map.insert(
             TokenType::LeftParen,
@@ -434,8 +437,8 @@ impl Compiler {
         return compiler;
     }
 
-    fn current_chunk(&mut self) -> &mut Chunk {
-        return &mut self.compiling_chunk;
+    pub fn current_chunk(&mut self) -> &mut Chunk {
+        return &mut self.function.chunk;
     }
 
     fn error_at(&mut self, token: Token, message: &str) {
@@ -528,8 +531,9 @@ impl Compiler {
         self.emit_byte(OpCode::Return as u8);
     }
 
-    fn end_compiler(&mut self) {
+    fn end_compiler(&mut self) -> &mut Function {
         self.emit_return();
+        return &mut self.function;
     }
 
     fn begin_scope(&mut self) {
@@ -1063,9 +1067,9 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&mut self, chunk: Option<Chunk>) -> bool {
+    pub fn compile(&mut self, chunk: Option<Chunk>) -> Option<&mut Function> {
         if let Some(c) = chunk {
-            self.compiling_chunk = c;
+            self.function.chunk = c;
         }
 
         self.parser.had_error = false;
@@ -1077,9 +1081,10 @@ impl Compiler {
             self.declaration();
         }
 
-        self.end_compiler();
+        let had_error = self.parser.had_error;
+        let function = self.end_compiler();
 
-        return !self.parser.had_error;
+        return if had_error { None } else { Some(function) };
     }
 }
 
@@ -1094,14 +1099,14 @@ mod tests {
         let source = String::from("1 + 2;");
 
         let chunk = Chunk::new();
-        let mut compiler = Compiler::new(source, chunk);
+        let mut compiler = Compiler::new(source, chunk, FunctionType::Script);
 
         let compile_result = compiler.compile(None);
 
-        assert_eq!(compile_result, true);
+        assert!(compile_result.is_some());
 
-        let two = compiler.compiling_chunk.constants.pop();
-        let one = compiler.compiling_chunk.constants.pop();
+        let two = compiler.current_chunk().constants.pop();
+        let one = compiler.current_chunk().constants.pop();
 
         match two {
             Some(Value::Number(n)) => {

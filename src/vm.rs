@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ops::Index};
+use std::{array, collections::HashMap, ops::Index};
 
 use crate::{
     chunk::{Chunk, OpCode},
-    compiler::Compiler,
-    value::Value,
+    compiler::{Compiler, FunctionType},
+    value::{Function, Value},
 };
 
 #[derive(Debug)]
@@ -11,6 +11,12 @@ pub enum InterpretResult {
     Ok,
     CompileError,
     RuntimeError,
+}
+
+pub struct CallFrame {
+    pub function: Function,
+    ip: usize,
+    slot: usize, // <-- pointer into vm value stack
 }
 
 pub trait ValueStack {
@@ -48,20 +54,31 @@ impl ValueStack for Vec<Value> {
     }
 }
 
+const MAX_FRAMES: usize = 64;
+
 pub struct VM<T: ValueStack> {
     pub chunk: Chunk,
-    ip: usize,
     pub value_stack: T,
+
     globals: HashMap<String, Value>,
+
+    pub frames: [CallFrame; MAX_FRAMES],
+    frame_count: usize,
 }
 
 impl<T: ValueStack> VM<T> {
     pub fn new() -> VM<Vec<Value>> {
         VM {
             chunk: Chunk::new(),
-            ip: 0,
             value_stack: Vec::new(),
             globals: HashMap::new(),
+
+            frames: array::from_fn(move |_| CallFrame {
+                function: Function::new(),
+                ip: 0,
+                slot: 0,
+            }),
+            frame_count: 0,
         }
     }
 
@@ -69,13 +86,19 @@ impl<T: ValueStack> VM<T> {
     pub fn new_with_value_stack(value_stack: T) -> VM<T> {
         VM {
             chunk: Chunk::new(),
-            ip: 0,
             value_stack,
             globals: HashMap::new(),
+
+            frames: array::from_fn(move |_| CallFrame {
+                function: Function::new(),
+                ip: 0,
+                slot: 0,
+            }),
+            frame_count: 0,
         }
     }
 
-    fn is_falsey(&self, value: Value) -> bool {
+    fn is_falsey(value: Value) -> bool {
         match value {
             Value::Nil => return true,
             Value::Boolean(tf) => return !tf,
@@ -83,7 +106,7 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
-    fn print_value(&self, value: Value) {
+    fn print_value(value: Value) {
         match value {
             Value::String(s) => {
                 for i in s.split("\\n") {
@@ -99,29 +122,39 @@ impl<T: ValueStack> VM<T> {
                 }
             }
             Value::Nil => println!("nil"),
-            Value::Function(func) => println!("<fn {}>", func.name),
+            Value::Function(func) => match func.name {
+                Some(name) => {
+                    println!("<fn {}>", name)
+                }
+                None => {
+                    println!("<script>")
+                }
+            },
         }
     }
 
     fn run(&mut self) -> InterpretResult {
+        let frame = &mut self.frames[self.frame_count - 1];
+
         macro_rules! get_instruction {
             () => {
-                OpCode::from_u8(self.chunk.code[self.ip])
+                OpCode::from_u8(frame.function.chunk.code[frame.ip])
             };
         }
 
         macro_rules! read_constant {
             () => {{
-                self.ip += 1;
-                let constant_index = self.chunk.code[self.ip];
-                &self.chunk.constants[constant_index as usize]
+                frame.ip += 1;
+                let constant_index = frame.function.chunk.code[frame.ip];
+                &frame.function.chunk.constants[constant_index as usize]
             }};
         }
 
         macro_rules! read_short {
             () => {{
-                self.ip += 2;
-                (self.chunk.code[self.ip - 1] as u16) << 8 | self.chunk.code[self.ip] as u16
+                frame.ip += 2;
+                (frame.function.chunk.code[frame.ip - 1] as u16) << 8
+                    | frame.function.chunk.code[frame.ip] as u16
             }};
         }
 
@@ -201,7 +234,9 @@ impl<T: ValueStack> VM<T> {
                     let v = self.value_stack.pop();
 
                     match v {
-                        Some(value) => self.value_stack.push(Value::Boolean(self.is_falsey(value))),
+                        Some(value) => self
+                            .value_stack
+                            .push(Value::Boolean(VM::<T>::is_falsey(value))),
                         _ => return InterpretResult::RuntimeError,
                     }
                 }
@@ -276,7 +311,7 @@ impl<T: ValueStack> VM<T> {
                     }
                 }
                 OpCode::Print => match self.value_stack.pop() {
-                    Some(v) => self.print_value(v),
+                    Some(v) => VM::<T>::print_value(v),
                     _ => return InterpretResult::RuntimeError,
                 },
                 OpCode::Pop => {
@@ -338,49 +373,59 @@ impl<T: ValueStack> VM<T> {
                     }
                 }
                 OpCode::GetLocal => {
-                    self.ip += 1;
-                    let slot = self.chunk.code[self.ip];
+                    // the frame instruction pointer gets incremented
+                    // then, the vm value stack should get a value pushed onto
+                    // the stack based on the value at that stack slot
+                    frame.ip += 1;
+                    let slot = frame.function.chunk.code[frame.ip];
 
                     self.value_stack
                         .push(self.value_stack.get_value_at_idx(slot as usize));
                 }
                 OpCode::SetLocal => {
-                    self.ip += 1;
-                    let slot = self.chunk.code[self.ip];
+                    frame.ip += 1;
+                    let slot = frame.function.chunk.code[frame.ip];
 
                     let top_value = self.value_stack.peek(0);
                     self.value_stack.set_value_at_idx(slot as usize, top_value);
                 }
                 OpCode::JumpIfFalse => {
                     let offset = read_short!();
-                    if self.is_falsey(self.value_stack.peek(0)) {
-                        self.ip += offset as usize;
+                    if VM::<T>::is_falsey(self.value_stack.peek(0)) {
+                        frame.ip += offset as usize;
                     }
                 }
                 OpCode::Jump => {
                     let offset = read_short!();
-                    self.ip += offset as usize;
+                    frame.ip += offset as usize;
                 }
                 OpCode::Loop => {
                     let offset = read_short!();
-                    self.ip -= offset as usize;
+                    frame.ip -= offset as usize;
                 }
             }
 
-            self.ip += 1;
+            frame.ip += 1;
         }
     }
 
     pub fn interpret(&mut self, source: String) -> InterpretResult {
         let chunk = Chunk::new();
-        let mut compiler = Compiler::new(source, chunk);
+        let mut compiler = Compiler::new(source, chunk, FunctionType::Script);
 
-        if !compiler.compile(None) {
-            return InterpretResult::CompileError;
+        let compile_result = compiler.compile(None);
+        match compile_result {
+            None => return InterpretResult::CompileError,
+            Some(func) => {
+                self.value_stack.push(Value::Function(func.to_owned()));
+
+                self.frames[self.frame_count].function = func.to_owned();
+                self.frames[self.frame_count].ip = 0;
+                self.frames[self.frame_count].slot = 0;
+
+                self.frame_count += 1;
+            }
         }
-
-        self.ip = 0;
-        self.chunk = compiler.compiling_chunk;
 
         return self.run();
     }

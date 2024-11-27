@@ -6,7 +6,7 @@ mod value;
 mod vm;
 
 use chunk::Chunk;
-use compiler::Compiler;
+use compiler::{Compiler, FunctionType};
 use debug::print_debug::disassemble_chunk;
 use debug::write_debug::write_chunk_to_file;
 use std::fs::File;
@@ -52,7 +52,7 @@ fn run_file(file_path: &str) {
     let mut vm = VM::<Vec<Value>>::new();
     vm.interpret(source);
 
-    disassemble_chunk(&vm.chunk, "First Chunk!");
+    // disassemble_chunk(&vm.frames[0].function.chunk, "First Chunk!");
 }
 
 fn debug_to_file(file_path: &str) {
@@ -64,14 +64,15 @@ fn debug_to_file(file_path: &str) {
         .expect("Could not write file to string");
 
     let chunk = Chunk::new();
-    let mut compiler = Compiler::new(source.clone(), chunk);
+    let mut compiler = Compiler::new(source.clone(), chunk, FunctionType::Script);
 
-    if !compiler.compile(None) {
+    let compile_result = compiler.compile(None);
+    if compile_result.is_none() {
         return;
     }
 
     let output_path = "./data/debug.txt";
-    write_chunk_to_file(source, &compiler.compiling_chunk, output_path);
+    write_chunk_to_file(source, &compiler.current_chunk(), output_path);
 }
 
 fn main() {
