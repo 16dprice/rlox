@@ -364,6 +364,10 @@ impl<T: ValueStack> VM<T> {
                     let offset = read_short!();
                     self.ip += offset as usize;
                 }
+                OpCode::Loop => {
+                    let offset = read_short!();
+                    self.ip -= offset as usize;
+                }
             }
 
             self.ip += 1;

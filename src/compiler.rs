@@ -278,7 +278,7 @@ impl Compiler {
             TokenType::And,
             ParseRule {
                 prefix: None,
-                infix: None,
+                infix: Some(Compiler::and_),
                 precedence: Precedence::And,
             },
         );
@@ -342,7 +342,7 @@ impl Compiler {
             TokenType::Or,
             ParseRule {
                 prefix: None,
-                infix: None,
+                infix: Some(Compiler::or_),
                 precedence: Precedence::Or,
             },
         );
@@ -492,6 +492,20 @@ impl Compiler {
 
         self.compiling_chunk.code[offset] = (((jump_size >> 8) as u16) & 0xff) as u8;
         self.compiling_chunk.code[offset + 1] = (jump_size & 0xff) as u8;
+    }
+
+    fn emit_loop(&mut self, loop_start: usize) {
+        self.emit_byte(OpCode::Loop as u8);
+
+        // The offset is the current byte code length minus where the
+        // loop was started plus 2. We add 2 to account for the bytes
+        // that are emitted below to capture the offset value itself.
+        let offset = self.compiling_chunk.code.len() - loop_start + 2;
+        if offset > u16::MAX as usize {
+            self.error("Loop body too large.");
+        }
+
+        self.emit_bytes(((offset >> 8) & 0xff) as u8, (offset & 0xff) as u8);
     }
 
     fn emit_return(&mut self) {
@@ -796,6 +810,74 @@ impl Compiler {
         self.patch_jump(else_jump);
     }
 
+    fn while_statement(&mut self) {
+        let loop_start = self.compiling_chunk.code.len();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+
+        let exit_jump = self.emit_jump(OpCode::JumpIfFalse);
+        self.emit_byte(OpCode::Pop as u8);
+
+        self.statement();
+        self.emit_loop(loop_start);
+
+        self.patch_jump(exit_jump);
+        self.emit_byte(OpCode::Pop as u8);
+    }
+
+    fn for_statement(&mut self) {
+        self.begin_scope();
+
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'.");
+
+        if self.match_token(TokenType::Semicolon) {
+            // no initializer
+        } else if self.match_token(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.expression_statement();
+        }
+
+        let mut loop_start = self.compiling_chunk.code.len();
+        let mut exit_jump: Option<usize> = None;
+        if !self.match_token(TokenType::Semicolon) {
+            self.expression();
+            self.consume(TokenType::Semicolon, "Expect ';' after loop condition.");
+
+            exit_jump = Some(self.emit_jump(OpCode::JumpIfFalse));
+            self.emit_byte(OpCode::Pop as u8);
+        }
+
+        if !self.match_token(TokenType::RightParen) {
+            let body_jump = self.emit_jump(OpCode::Jump);
+            let increment_start = self.compiling_chunk.code.len();
+
+            self.expression();
+
+            self.emit_byte(OpCode::Pop as u8);
+            self.consume(TokenType::RightParen, "Expect ')' after for clauses.");
+
+            self.emit_loop(loop_start);
+            loop_start = increment_start;
+            self.patch_jump(body_jump);
+        }
+
+        self.statement();
+        self.emit_loop(loop_start);
+
+        match exit_jump {
+            Some(i) => {
+                self.patch_jump(i);
+                self.emit_byte(OpCode::Pop as u8); // pop the condition
+            }
+            _ => {}
+        }
+
+        self.end_scope();
+    }
+
     fn add_local(&mut self, name: Token) {
         if self.local_count as usize == u8::MAX as usize + 1 {
             self.error("Too many local variables in block");
@@ -864,6 +946,26 @@ impl Compiler {
         self.emit_bytes(OpCode::DefineGlobal as u8, global_index);
     }
 
+    fn and_(&mut self, _can_assign: bool) {
+        let end_jump = self.emit_jump(OpCode::JumpIfFalse);
+
+        self.emit_byte(OpCode::Pop as u8);
+        self.parse_precedence(Precedence::And);
+
+        self.patch_jump(end_jump);
+    }
+
+    fn or_(&mut self, _can_assign: bool) {
+        let else_jump = self.emit_jump(OpCode::JumpIfFalse);
+        let end_jump = self.emit_jump(OpCode::Jump);
+
+        self.patch_jump(else_jump);
+        self.emit_byte(OpCode::Pop as u8);
+
+        self.parse_precedence(Precedence::Or);
+        self.patch_jump(end_jump);
+    }
+
     fn var_declaration(&mut self) {
         let global_index = self.parse_variable("Expect variable name.");
 
@@ -916,9 +1018,9 @@ impl Compiler {
         } else if self.match_token(TokenType::If) {
             self.if_statement();
         } else if self.match_token(TokenType::While) {
-            todo!("while statement not yet implemented");
+            self.while_statement();
         } else if self.match_token(TokenType::For) {
-            todo!("for statement not yet implemented");
+            self.for_statement();
         } else if self.match_token(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();

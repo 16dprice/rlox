@@ -28,6 +28,7 @@ pub enum OpCode {
     SetLocal = 20,
     JumpIfFalse = 21,
     Jump = 22,
+    Loop = 23,
 }
 
 impl fmt::Display for OpCode {
@@ -102,6 +103,9 @@ impl fmt::Display for OpCode {
             OpCode::Jump => {
                 write!(f, "OP_JUMP")
             }
+            OpCode::Loop => {
+                write!(f, "OP_LOOP")
+            }
         }
     }
 }
@@ -132,6 +136,7 @@ impl OpCode {
             20 => Some(OpCode::SetLocal),
             21 => Some(OpCode::JumpIfFalse),
             22 => Some(OpCode::Jump),
+            23 => Some(OpCode::Loop),
             _ => None,
         }
     }

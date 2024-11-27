@@ -144,6 +144,10 @@ pub mod print_debug {
                 );
                 return offset + 3;
             }
+            OpCode::Loop => {
+                println!("op code loop");
+                return offset + 3;
+            }
         }
     }
 
@@ -305,6 +309,7 @@ pub mod write_debug {
                     offset + 3,
                 );
             }
+            OpCode::Loop => return ("opcode loop".to_owned(), offset + 3),
         }
     }
 

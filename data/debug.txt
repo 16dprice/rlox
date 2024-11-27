@@ -221,6 +221,93 @@ OP_POP
 OP_POP
 
 
+var control1 = 1;
+
+OP_CONSTANT
+CONSTANT: 1
+OP_DEFINE_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control1'
+
+
+var control2 = 1;
+
+OP_CONSTANT
+CONSTANT: 1
+OP_DEFINE_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control2'
+
+
+while (control1 < 100) {
+
+OP_GET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control1'
+OP_CONSTANT
+CONSTANT: 100
+OP_LESS
+OP_JUMP_IF_FALSE 143 -> 178
+OP_POP
+
+
+    print "Control 1: " + control1 + ", Control 2: " + control2;
+
+OP_CONSTANT
+CONSTANT: 'Control 1: '
+OP_GET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control1'
+OP_ADD
+OP_CONSTANT
+CONSTANT: ', Control 2: '
+OP_ADD
+OP_GET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control2'
+OP_ADD
+OP_PRINT
+
+
+    var previousControl1 = control1;
+
+OP_GET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control1'
+
+
+    control1 = control2;
+
+OP_GET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control2'
+OP_SET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control1'
+OP_POP
+
+
+    control2 = previousControl1 + control2;
+
+OP_GET_LOCAL
+OP_CONSTANT
+CONSTANT: 'x0'
+OP_GET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control2'
+OP_ADD
+OP_SET_GLOBAL
+OP_CONSTANT
+CONSTANT: 'control2'
+OP_POP
+
+
+}
+
+OP_POP
+opcode loopOP_POP
+
+
 
 
 OP_RETURN

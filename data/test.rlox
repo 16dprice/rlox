@@ -26,3 +26,14 @@ var x0 = 0.5;
         print "false";
     }
 }
+
+var control1 = 1;
+var control2 = 1;
+
+while (control1 < 100) {
+    print "Control 1: " + control1 + ", Control 2: " + control2;
+
+    var previousControl1 = control1;
+    control1 = control2;
+    control2 = previousControl1 + control2;
+}
