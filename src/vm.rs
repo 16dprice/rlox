@@ -99,6 +99,7 @@ impl<T: ValueStack> VM<T> {
                 }
             }
             Value::Nil => println!("nil"),
+            Value::Function(func) => println!("<fn {}>", func.name),
         }
     }
 
@@ -136,10 +137,7 @@ impl<T: ValueStack> VM<T> {
                         }
                         _ => return InterpretResult::RuntimeError,
                     },
-                    Some(Value::Boolean(_)) => return InterpretResult::RuntimeError,
-                    Some(Value::Nil) => return InterpretResult::RuntimeError,
-                    Some(Value::String(_)) => return InterpretResult::RuntimeError,
-                    None => return InterpretResult::RuntimeError,
+                    _ => return InterpretResult::RuntimeError,
                 }
             };
         }
@@ -178,9 +176,7 @@ impl<T: ValueStack> VM<T> {
                             }
                             _ => return InterpretResult::RuntimeError,
                         },
-                        Some(Value::Boolean(_)) => return InterpretResult::RuntimeError,
-                        Some(Value::Nil) => return InterpretResult::RuntimeError,
-                        None => return InterpretResult::RuntimeError,
+                        _ => return InterpretResult::RuntimeError,
                     }
                 }
                 OpCode::Subtract => {
@@ -247,6 +243,7 @@ impl<T: ValueStack> VM<T> {
                             }
                             _ => self.value_stack.push(Value::Boolean(false)),
                         },
+                        Some(Value::Function(_)) => return InterpretResult::RuntimeError,
                         None => return InterpretResult::RuntimeError,
                     }
                 }

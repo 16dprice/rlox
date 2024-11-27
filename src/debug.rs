@@ -9,6 +9,7 @@ fn get_value_debug_string(value: &Value) -> String {
         Value::Boolean(v) => format!("{}", v),
         Value::Number(v) => format!("{}", v),
         Value::String(v) => format!("'{}'", v),
+        Value::Function(v) => format!("<fn {}>", v.name),
     }
 }
 

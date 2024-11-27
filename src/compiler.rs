@@ -3,6 +3,7 @@ use std::u8;
 
 use crate::chunk::{Chunk, OpCode};
 use crate::scanner::{Scanner, Token, TokenType};
+use crate::value::Function;
 
 struct Parser {
     current: Token,
@@ -70,6 +71,11 @@ struct Local {
     depth: Option<u16>,
 }
 
+enum FunctionType {
+    Function,
+    Script,
+}
+
 pub struct Compiler {
     scanner: Scanner,
     pub compiling_chunk: Chunk,
@@ -80,6 +86,9 @@ pub struct Compiler {
     local_count: u8,
     scope_depth: u16,
     locals: [Local; u8::MAX as usize + 1],
+
+    function: Function,
+    function_type: FunctionType,
 }
 
 impl Compiler {
@@ -96,6 +105,9 @@ impl Compiler {
                 name: Token::default(),
                 depth: Some(0),
             }; u8::MAX as usize + 1],
+
+            function: Function::new(),
+            function_type: FunctionType::Script,
         };
 
         compiler.precedence_map.insert(
@@ -422,6 +434,10 @@ impl Compiler {
         return compiler;
     }
 
+    fn current_chunk(&mut self) -> &mut Chunk {
+        return &mut self.compiling_chunk;
+    }
+
     fn error_at(&mut self, token: Token, message: &str) {
         if self.parser.panic_mode {
             return;
@@ -475,23 +491,23 @@ impl Compiler {
         self.emit_byte(0xff);
 
         // return the index in the code of the first 0xff value
-        return self.compiling_chunk.code.len() - 2;
+        return self.current_chunk().code.len() - 2;
     }
 
     fn emit_byte(&mut self, byte: u8) {
-        self.compiling_chunk
-            .write_code(byte, self.parser.previous.line);
+        let line = self.parser.previous.line;
+        self.current_chunk().write_code(byte, line);
     }
 
     fn patch_jump(&mut self, offset: usize) {
         // the jump size is equal to the
-        let jump_size = self.compiling_chunk.code.len() - offset - 2;
+        let jump_size = self.current_chunk().code.len() - offset - 2;
         if jump_size > u16::MAX as usize {
             self.error("Too much code to jump over.");
         }
 
-        self.compiling_chunk.code[offset] = (((jump_size >> 8) as u16) & 0xff) as u8;
-        self.compiling_chunk.code[offset + 1] = (jump_size & 0xff) as u8;
+        self.current_chunk().code[offset] = (((jump_size >> 8) as u16) & 0xff) as u8;
+        self.current_chunk().code[offset + 1] = (jump_size & 0xff) as u8;
     }
 
     fn emit_loop(&mut self, loop_start: usize) {
@@ -500,7 +516,7 @@ impl Compiler {
         // The offset is the current byte code length minus where the
         // loop was started plus 2. We add 2 to account for the bytes
         // that are emitted below to capture the offset value itself.
-        let offset = self.compiling_chunk.code.len() - loop_start + 2;
+        let offset = self.current_chunk().code.len() - loop_start + 2;
         if offset > u16::MAX as usize {
             self.error("Loop body too large.");
         }
@@ -570,9 +586,9 @@ impl Compiler {
 
         let start = self.parser.previous.start + 1;
         let end = start + self.parser.previous.length - 2;
-        let lexeme = &self.scanner.source[start..end];
+        let lexeme = self.scanner.source[start..end].to_owned();
 
-        let constant_index = self.compiling_chunk.write_string(String::from(lexeme));
+        let constant_index = self.current_chunk().write_string(String::from(lexeme));
         self.emit_byte(constant_index as u8);
     }
 
@@ -622,8 +638,8 @@ impl Compiler {
                 set_operation = OpCode::SetLocal;
             }
             None => {
-                let lexeme = &self.scanner.source[name.start..(name.start + name.length)];
-                index = self.compiling_chunk.write_string(lexeme.to_owned());
+                let lexeme = self.scanner.source[name.start..(name.start + name.length)].to_owned();
+                index = self.current_chunk().write_string(lexeme);
 
                 get_operation = OpCode::GetGlobal;
                 set_operation = OpCode::SetGlobal;
@@ -650,7 +666,7 @@ impl Compiler {
 
         match lexeme.parse::<f64>() {
             Ok(value) => {
-                let constant_index = self.compiling_chunk.write_number(value);
+                let constant_index = self.current_chunk().write_number(value);
                 self.emit_byte(constant_index as u8);
             }
             Err(e) => self
@@ -811,7 +827,7 @@ impl Compiler {
     }
 
     fn while_statement(&mut self) {
-        let loop_start = self.compiling_chunk.code.len();
+        let loop_start = self.current_chunk().code.len();
 
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
         self.expression();
@@ -840,7 +856,7 @@ impl Compiler {
             self.expression_statement();
         }
 
-        let mut loop_start = self.compiling_chunk.code.len();
+        let mut loop_start = self.current_chunk().code.len();
         let mut exit_jump: Option<usize> = None;
         if !self.match_token(TokenType::Semicolon) {
             self.expression();
@@ -852,7 +868,7 @@ impl Compiler {
 
         if !self.match_token(TokenType::RightParen) {
             let body_jump = self.emit_jump(OpCode::Jump);
-            let increment_start = self.compiling_chunk.code.len();
+            let increment_start = self.current_chunk().code.len();
 
             self.expression();
 
@@ -926,10 +942,11 @@ impl Compiler {
             return 0;
         }
 
-        let lexeme = &self.scanner.source[self.parser.previous.start
-            ..(self.parser.previous.start + self.parser.previous.length)];
+        let lexeme = self.scanner.source[self.parser.previous.start
+            ..(self.parser.previous.start + self.parser.previous.length)]
+            .to_owned();
 
-        let index = self.compiling_chunk.write_string(lexeme.to_owned());
+        let index = self.current_chunk().write_string(lexeme);
         return index as u8;
     }
 
