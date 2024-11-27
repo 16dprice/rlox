@@ -182,6 +182,37 @@ OP_ADD
 OP_PRINT
 
 
+    if(2 > 4) {
+
+OP_CONSTANT
+CONSTANT: 2
+OP_CONSTANT
+CONSTANT: 4
+OP_GREATER
+OP_JUMP_IF_FALSE 112 -> 122
+OP_POP
+
+
+        print "true";
+
+OP_CONSTANT
+CONSTANT: 'true'
+OP_PRINT
+
+
+    } else {
+
+OP_JUMP 119 -> 126
+OP_POP
+
+
+        print "false";
+
+OP_CONSTANT
+CONSTANT: 'false'
+OP_PRINT
+
+
 }
 
 OP_POP

@@ -123,6 +123,27 @@ pub mod print_debug {
                 println!("{}: {}", OpCode::SetLocal, slot);
                 return offset + 2;
             }
+            OpCode::JumpIfFalse => {
+                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
+                println!(
+                    "{} {} -> {}",
+                    OpCode::JumpIfFalse,
+                    offset,
+                    offset + 3 + jump as usize
+                );
+
+                return offset + 3;
+            }
+            OpCode::Jump => {
+                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
+                println!(
+                    "{} {} -> {}",
+                    OpCode::Jump,
+                    offset,
+                    offset + 3 + jump as usize
+                );
+                return offset + 3;
+            }
         }
     }
 
@@ -258,6 +279,30 @@ pub mod write_debug {
                         get_value_debug_string(constant)
                     ),
                     offset + 2,
+                );
+            }
+            OpCode::JumpIfFalse => {
+                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
+                return (
+                    format!(
+                        "{} {} -> {}\n",
+                        OpCode::JumpIfFalse,
+                        offset,
+                        offset + 3 + jump as usize
+                    ),
+                    offset + 3,
+                );
+            }
+            OpCode::Jump => {
+                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
+                return (
+                    format!(
+                        "{} {} -> {}\n",
+                        OpCode::Jump,
+                        offset,
+                        offset + 3 + jump as usize
+                    ),
+                    offset + 3,
                 );
             }
         }

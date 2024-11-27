@@ -117,6 +117,13 @@ impl<T: ValueStack> VM<T> {
             }};
         }
 
+        macro_rules! read_short {
+            () => {{
+                self.ip += 2;
+                (self.chunk.code[self.ip - 1] as u16) << 8 | self.chunk.code[self.ip] as u16
+            }};
+        }
+
         macro_rules! binary_op {
             ($op:tt) => {
                 let b = self.value_stack.pop();
@@ -346,6 +353,16 @@ impl<T: ValueStack> VM<T> {
 
                     let top_value = self.value_stack.peek(0);
                     self.value_stack.set_value_at_idx(slot as usize, top_value);
+                }
+                OpCode::JumpIfFalse => {
+                    let offset = read_short!();
+                    if self.is_falsey(self.value_stack.peek(0)) {
+                        self.ip += offset as usize;
+                    }
+                }
+                OpCode::Jump => {
+                    let offset = read_short!();
+                    self.ip += offset as usize;
                 }
             }
 
