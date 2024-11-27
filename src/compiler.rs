@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::u8;
 
 use crate::chunk::{Chunk, OpCode};
 use crate::scanner::{Scanner, Token, TokenType};
@@ -63,11 +64,22 @@ struct ParseRule {
     precedence: Precedence,
 }
 
+#[derive(Clone, Copy)]
+struct Local {
+    name: Token,
+    depth: Option<u16>,
+}
+
 pub struct Compiler {
     scanner: Scanner,
     pub compiling_chunk: Chunk,
     parser: Parser,
     precedence_map: HashMap<TokenType, ParseRule>,
+
+    // Used for local variable storage
+    local_count: u8,
+    scope_depth: u16,
+    locals: [Local; u8::MAX as usize + 1],
 }
 
 impl Compiler {
@@ -77,6 +89,13 @@ impl Compiler {
             compiling_chunk: chunk,
             parser: Parser::new(),
             precedence_map: HashMap::new(),
+
+            local_count: 0,
+            scope_depth: 0,
+            locals: [Local {
+                name: Token::default(),
+                depth: Some(0),
+            }; u8::MAX as usize + 1],
         };
 
         compiler.precedence_map.insert(
@@ -463,6 +482,21 @@ impl Compiler {
         self.emit_return();
     }
 
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        self.scope_depth -= 1;
+
+        while self.local_count > 0
+            && self.locals[self.local_count as usize - 1].depth.unwrap() > self.scope_depth
+        {
+            self.emit_byte(OpCode::Pop as u8);
+            self.local_count -= 1;
+        }
+    }
+
     fn consume(&mut self, token_type: TokenType, message: &str) {
         if self.parser.current.token_type as u8 == token_type as u8 {
             self.advance();
@@ -508,15 +542,65 @@ impl Compiler {
         self.emit_byte(constant_index as u8);
     }
 
+    fn identifiers_equal(&mut self, a: Token, b: Token) -> bool {
+        if a.length != b.length {
+            return false;
+        }
+
+        let a_lexeme = &self.scanner.source[a.start..(a.start + a.length)];
+        let b_lexeme = &self.scanner.source[b.start..(b.start + b.length)];
+
+        return a_lexeme.eq(b_lexeme);
+    }
+
+    fn resolve_local(&mut self, name: Token) -> Option<usize> {
+        // iterates from (self.local_count - 1) to 0
+        for idx in (0..self.local_count as usize).rev() {
+            let local = self.locals[idx];
+
+            if self.identifiers_equal(name, local.name) {
+                match local.depth {
+                    None => {
+                        self.error("Can't read local variable in its own initializer");
+                    }
+                    _ => {}
+                }
+                return Some(idx);
+            }
+        }
+        return None;
+    }
+
     fn named_variable(&mut self, name: Token, can_assign: bool) {
-        let lexeme = &self.scanner.source[name.start..(name.start + name.length)];
-        let index = self.compiling_chunk.write_string(lexeme.to_owned());
+        let get_operation: OpCode;
+        let set_operation: OpCode;
+
+        let local_index = self.resolve_local(name);
+        let index: usize;
+
+        // if the index exists, then the variable is a local
+        // otherwise, it's a global
+        match local_index {
+            Some(i) => {
+                index = i;
+
+                get_operation = OpCode::GetLocal;
+                set_operation = OpCode::SetLocal;
+            }
+            None => {
+                let lexeme = &self.scanner.source[name.start..(name.start + name.length)];
+                index = self.compiling_chunk.write_string(lexeme.to_owned());
+
+                get_operation = OpCode::GetGlobal;
+                set_operation = OpCode::SetGlobal;
+            }
+        }
 
         if can_assign && self.match_token(TokenType::Equal) {
             self.expression();
-            self.emit_bytes(OpCode::SetGlobal as u8, index as u8);
+            self.emit_bytes(set_operation as u8, index as u8);
         } else {
-            self.emit_bytes(OpCode::GetGlobal as u8, index as u8);
+            self.emit_bytes(get_operation as u8, index as u8);
         }
     }
 
@@ -656,14 +740,67 @@ impl Compiler {
         self.parse_precedence(Precedence::Assignment);
     }
 
+    fn block(&mut self) {
+        while !self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
+            self.declaration();
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after block.");
+    }
+
     fn expression_statement(&mut self) {
         self.expression();
         self.consume(TokenType::Semicolon, "Expect ';' after expression.");
         self.emit_byte(OpCode::Pop as u8);
     }
 
+    fn add_local(&mut self, name: Token) {
+        if self.local_count as usize == u8::MAX as usize + 1 {
+            self.error("Too many local variables in block");
+            return;
+        }
+
+        let mut current_local = self.locals[self.local_count as usize];
+
+        // current_local.name = name;
+        // current_local.depth = None;
+
+        self.locals[self.local_count as usize].name = name;
+        self.locals[self.local_count as usize].depth = None;
+
+        self.local_count += 1;
+    }
+
+    fn declare_variable(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
+
+        let name = self.parser.previous;
+
+        // iterates from (self.local_count - 1) to 0
+        for idx in (0..self.local_count as usize).rev() {
+            let local = self.locals[idx];
+
+            if local.depth == None && local.depth.unwrap() < self.scope_depth {
+                continue;
+            }
+
+            if self.identifiers_equal(name, local.name) {
+                self.error("Already a variable with this name in this scope.");
+            }
+        }
+
+        self.add_local(name);
+    }
+
     fn parse_variable(&mut self, message: &str) -> u8 {
         self.consume(TokenType::Identifier, message);
+
+        self.declare_variable();
+        if self.scope_depth > 0 {
+            return 0;
+        }
 
         let lexeme = &self.scanner.source[self.parser.previous.start
             ..(self.parser.previous.start + self.parser.previous.length)];
@@ -672,7 +809,16 @@ impl Compiler {
         return index as u8;
     }
 
+    fn mark_initialized(&mut self) {
+        self.locals[self.local_count as usize - 1].depth = Some(self.scope_depth);
+    }
+
     fn define_variable(&mut self, global_index: u8) {
+        if self.scope_depth > 0 {
+            self.mark_initialized();
+            return;
+        }
+
         self.emit_bytes(OpCode::DefineGlobal as u8, global_index);
     }
 
@@ -732,7 +878,9 @@ impl Compiler {
         } else if self.match_token(TokenType::For) {
             todo!("for statement not yet implemented");
         } else if self.match_token(TokenType::LeftBrace) {
-            todo!("block statement not yet implemented");
+            self.begin_scope();
+            self.block();
+            self.end_scope();
         } else {
             self.expression_statement();
         }

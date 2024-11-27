@@ -24,6 +24,8 @@ pub enum OpCode {
     DefineGlobal = 16,
     GetGlobal = 17,
     SetGlobal = 18,
+    GetLocal = 19,
+    SetLocal = 20,
 }
 
 impl fmt::Display for OpCode {
@@ -86,6 +88,12 @@ impl fmt::Display for OpCode {
             OpCode::SetGlobal => {
                 write!(f, "OP_SET_GLOBAL")
             }
+            OpCode::GetLocal => {
+                write!(f, "OP_GET_LOCAL")
+            }
+            OpCode::SetLocal => {
+                write!(f, "OP_SET_LOCAL")
+            }
         }
     }
 }
@@ -112,6 +120,8 @@ impl OpCode {
             16 => Some(OpCode::DefineGlobal),
             17 => Some(OpCode::GetGlobal),
             18 => Some(OpCode::SetGlobal),
+            19 => Some(OpCode::GetLocal),
+            20 => Some(OpCode::SetLocal),
             _ => None,
         }
     }

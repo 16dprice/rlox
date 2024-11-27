@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Index};
 
 use crate::{
     chunk::{Chunk, OpCode},
@@ -17,6 +17,9 @@ pub trait ValueStack {
     fn push(&mut self, value: Value);
     fn pop(&mut self) -> Option<Value>;
     fn last_value(&mut self) -> Option<Value>;
+    fn get_value_at_idx(&self, index: usize) -> Value;
+    fn set_value_at_idx(&mut self, index: usize, value: Value);
+    fn peek(&self, distance: usize) -> Value;
 }
 
 impl ValueStack for Vec<Value> {
@@ -30,6 +33,18 @@ impl ValueStack for Vec<Value> {
 
     fn last_value(&mut self) -> Option<Value> {
         return self.last().cloned();
+    }
+
+    fn get_value_at_idx(&self, index: usize) -> Value {
+        return self[index].clone();
+    }
+
+    fn set_value_at_idx(&mut self, index: usize, value: Value) {
+        self[index] = value;
+    }
+
+    fn peek(&self, distance: usize) -> Value {
+        return self.get_value_at_idx(self.len() - 1 - distance);
     }
 }
 
@@ -318,6 +333,20 @@ impl<T: ValueStack> VM<T> {
                         }
                     }
                 }
+                OpCode::GetLocal => {
+                    self.ip += 1;
+                    let slot = self.chunk.code[self.ip];
+
+                    self.value_stack
+                        .push(self.value_stack.get_value_at_idx(slot as usize));
+                }
+                OpCode::SetLocal => {
+                    self.ip += 1;
+                    let slot = self.chunk.code[self.ip];
+
+                    let top_value = self.value_stack.peek(0);
+                    self.value_stack.set_value_at_idx(slot as usize, top_value);
+                }
             }
 
             self.ip += 1;
@@ -362,6 +391,18 @@ mod tests {
 
         fn last_value(&mut self) -> Option<Value> {
             return self.values.last().cloned();
+        }
+
+        fn get_value_at_idx(&self, index: usize) -> Value {
+            return self.values[index].clone();
+        }
+
+        fn set_value_at_idx(&mut self, index: usize, value: Value) {
+            self.values[index] = value;
+        }
+
+        fn peek(&self, distance: usize) -> Value {
+            return self.get_value_at_idx(self.values.len() - 1 - distance);
         }
     }
 
