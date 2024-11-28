@@ -3,6 +3,7 @@ use std::{array, collections::HashMap, ops::Index};
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::{Compiler, FunctionType},
+    scanner::Scanner,
     value::{Function, Value},
 };
 
@@ -26,6 +27,7 @@ pub trait ValueStack {
     fn get_value_at_idx(&self, index: usize) -> Value;
     fn set_value_at_idx(&mut self, index: usize, value: Value);
     fn peek(&self, distance: usize) -> Value;
+    fn print_debug(&self) -> ();
 }
 
 impl ValueStack for Vec<Value> {
@@ -51,6 +53,12 @@ impl ValueStack for Vec<Value> {
 
     fn peek(&self, distance: usize) -> Value {
         return self.get_value_at_idx(self.len() - 1 - distance);
+    }
+
+    fn print_debug(&self) -> () {
+        for val in self.iter() {
+            println!("{:?}", val);
+        }
     }
 }
 
@@ -183,7 +191,8 @@ impl<T: ValueStack> VM<T> {
                     return InterpretResult::Ok;
                 }
                 OpCode::Constant => {
-                    self.value_stack.push(read_constant!().clone());
+                    let constant = read_constant!();
+                    self.value_stack.push(constant.clone());
                 }
                 OpCode::Add => {
                     let b = self.value_stack.pop();
@@ -410,8 +419,8 @@ impl<T: ValueStack> VM<T> {
     }
 
     pub fn interpret(&mut self, source: String) -> InterpretResult {
-        let chunk = Chunk::new();
-        let mut compiler = Compiler::new(source, chunk, FunctionType::Script);
+        let scanner = Scanner::new(source);
+        let mut compiler = Compiler::new(scanner, FunctionType::Script);
 
         let compile_result = compiler.compile(None);
         match compile_result {
@@ -466,6 +475,10 @@ mod tests {
 
         fn peek(&self, distance: usize) -> Value {
             return self.get_value_at_idx(self.values.len() - 1 - distance);
+        }
+
+        fn print_debug(&self) -> () {
+            println!("{:?}", self.values);
         }
     }
 

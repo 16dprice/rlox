@@ -9,6 +9,7 @@ use chunk::Chunk;
 use compiler::{Compiler, FunctionType};
 use debug::print_debug::disassemble_chunk;
 use debug::write_debug::write_chunk_to_file;
+use scanner::Scanner;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use value::Value;
@@ -52,7 +53,7 @@ fn run_file(file_path: &str) {
     let mut vm = VM::<Vec<Value>>::new();
     vm.interpret(source);
 
-    // disassemble_chunk(&vm.frames[0].function.chunk, "First Chunk!");
+    disassemble_chunk(&vm.frames[0].function.chunk, "First Chunk!");
 }
 
 fn debug_to_file(file_path: &str) {
@@ -63,8 +64,8 @@ fn debug_to_file(file_path: &str) {
     file.read_to_string(&mut source)
         .expect("Could not write file to string");
 
-    let chunk = Chunk::new();
-    let mut compiler = Compiler::new(source.clone(), chunk, FunctionType::Script);
+    let scanner = Scanner::new(source.clone());
+    let mut compiler = Compiler::new(scanner, FunctionType::Script);
 
     let compile_result = compiler.compile(None);
     if compile_result.is_none() {
@@ -78,7 +79,7 @@ fn debug_to_file(file_path: &str) {
 fn main() {
     // let use_repl = true;
 
-    debug_to_file("./data/test.rlox");
+    // debug_to_file("./data/test.rlox");
     run_file("./data/test.rlox");
 
     // if use_repl {

@@ -78,6 +78,7 @@ fn is_digit(c: char) -> bool {
     c >= '0' && c <= '9'
 }
 
+#[derive(Debug, Clone)]
 pub struct Scanner {
     pub source: String,
     start: usize,

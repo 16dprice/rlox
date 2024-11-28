@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::value::Value;
+use crate::value::{Function, Value};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -170,6 +170,11 @@ impl Chunk {
 
     pub fn write_string(&mut self, s: String) -> usize {
         self.constants.push(Value::String(s));
+        return self.constants.len() - 1;
+    }
+
+    pub fn write_function(&mut self, f: Function) -> usize {
+        self.constants.push(Value::Function(f));
         return self.constants.len() - 1;
     }
 }

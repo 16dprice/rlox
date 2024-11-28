@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::u8;
+use std::{fmt, u8};
 
 use crate::chunk::{Chunk, OpCode};
 use crate::scanner::{Scanner, Token, TokenType};
 use crate::value::Function;
 
+#[derive(Debug)]
 struct Parser {
     current: Token,
     previous: Token,
@@ -71,9 +72,23 @@ struct Local {
     depth: Option<u16>,
 }
 
+#[derive(Clone, Copy)]
 pub enum FunctionType {
     Function,
     Script,
+}
+
+impl fmt::Display for FunctionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FunctionType::Function => {
+                write!(f, "Function")
+            }
+            FunctionType::Script => {
+                write!(f, "Script")
+            }
+        }
+    }
 }
 
 pub struct Compiler {
@@ -91,9 +106,9 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(source: String, chunk: Chunk, function_type: FunctionType) -> Compiler {
+    pub fn new(scanner: Scanner, function_type: FunctionType) -> Compiler {
         let mut compiler = Compiler {
-            scanner: Scanner::new(source),
+            scanner,
             parser: Parser::new(),
             precedence_map: HashMap::new(),
 
@@ -439,6 +454,11 @@ impl Compiler {
 
     pub fn current_chunk(&mut self) -> &mut Chunk {
         return &mut self.function.chunk;
+    }
+
+    fn patch_parser(&mut self, previous: Token, current: Token) {
+        self.parser.previous = previous;
+        self.parser.current = current;
     }
 
     fn error_at(&mut self, token: Token, message: &str) {
@@ -955,6 +975,12 @@ impl Compiler {
     }
 
     fn mark_initialized(&mut self) {
+        // since global functions can call this method, we bail out if
+        // the scope depth is 0 because we don't want to set a local var
+        // if we have a global function
+        if self.scope_depth == 0 {
+            return;
+        }
         self.locals[self.local_count as usize - 1].depth = Some(self.scope_depth);
     }
 
@@ -1000,6 +1026,63 @@ impl Compiler {
             "Expect ';' after variable declaration.",
         );
 
+        self.define_variable(global_index);
+    }
+
+    fn function(&mut self, function_type: FunctionType) {
+        let mut compiler = Compiler::new(self.scanner.to_owned(), function_type);
+
+        compiler.patch_parser(self.parser.previous, self.parser.current);
+
+        match function_type {
+            FunctionType::Function => {
+                compiler.function.name = Some(
+                    compiler.scanner.source[compiler.parser.previous.start
+                        ..(compiler.parser.previous.start + compiler.parser.previous.length)]
+                        .to_owned(),
+                );
+            }
+            _ => {}
+        }
+        compiler.begin_scope();
+
+        compiler.consume(TokenType::LeftParen, "Expect '(' after function name.");
+        if !compiler.check(TokenType::RightParen) {
+            loop {
+                if compiler.function.arity == 255 {
+                    self.error_at_current("Can't have more than 255 parameters.");
+                }
+                compiler.function.arity += 1;
+
+                let constant_index = compiler.parse_variable("Expect parameter name.");
+                compiler.define_variable(constant_index);
+
+                if !compiler.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        compiler.consume(TokenType::RightParen, "Expect ')' after parameters.");
+        compiler.consume(TokenType::LeftBrace, "Expect '{' before function body.");
+        compiler.block();
+
+        let func = compiler.end_compiler().to_owned();
+
+        let func_index = self.current_chunk().write_function(func);
+        self.emit_bytes(OpCode::Constant as u8, func_index as u8);
+
+        // TODO: find a better way to patch back the
+        // state to the outside compiler
+        self.patch_parser(compiler.parser.previous, compiler.parser.current);
+        self.scanner = compiler.scanner.to_owned();
+    }
+
+    fn fun_declaration(&mut self) {
+        let global_index = self.parse_variable("Expect function name.");
+        self.mark_initialized();
+
+        self.function(FunctionType::Function);
         self.define_variable(global_index);
     }
 
@@ -1055,7 +1138,7 @@ impl Compiler {
         if self.match_token(TokenType::Var) {
             self.var_declaration();
         } else if self.match_token(TokenType::Fun) {
-            todo!("fun token handling hasn't been implemented");
+            self.fun_declaration();
         } else if self.match_token(TokenType::Class) {
             todo!("class token handling hasn't been implemented");
         } else {
@@ -1097,9 +1180,8 @@ mod tests {
     #[test]
     fn basic_arithmetic_opcodes() {
         let source = String::from("1 + 2;");
-
-        let chunk = Chunk::new();
-        let mut compiler = Compiler::new(source, chunk, FunctionType::Script);
+        let scanner = Scanner::new(source);
+        let mut compiler = Compiler::new(scanner, FunctionType::Script);
 
         let compile_result = compiler.compile(None);
 
