@@ -1,17 +1,10 @@
-// f(x) = x * x
-// f'(x) = 2x
-// x_n+1 = x_n - f(x_n) / f'(x_n)
-//       = x_n - (x_n * x_n) / (2 * x_n)
-
-//var guess = 0.5;
-//while (guess > 0.01) {
-    //guess = guess - (guess * guess) / (2 * guess);
-//}
-//print guess;
-
-
-fun thing() {
-    print "avcd";
+fun fib(n) {
+    if (n < 2) {
+        return n;
+    }
+    return fib(n - 2) + fib(n - 1);
 }
 
-print thing;
+var result = fib(21);
+
+print result;

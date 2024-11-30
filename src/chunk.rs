@@ -29,6 +29,7 @@ pub enum OpCode {
     JumpIfFalse = 21,
     Jump = 22,
     Loop = 23,
+    Call = 24,
 }
 
 impl fmt::Display for OpCode {
@@ -106,6 +107,9 @@ impl fmt::Display for OpCode {
             OpCode::Loop => {
                 write!(f, "OP_LOOP")
             }
+            OpCode::Call => {
+                write!(f, "OP_CALL")
+            }
         }
     }
 }
@@ -137,6 +141,7 @@ impl OpCode {
             21 => Some(OpCode::JumpIfFalse),
             22 => Some(OpCode::Jump),
             23 => Some(OpCode::Loop),
+            24 => Some(OpCode::Call),
             _ => None,
         }
     }

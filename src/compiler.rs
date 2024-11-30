@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::{fmt, u8};
 
 use crate::chunk::{Chunk, OpCode};
+use crate::debug::print_debug::disassemble_chunk;
 use crate::scanner::{Scanner, Token, TokenType};
 use crate::value::Function;
 
@@ -132,8 +133,8 @@ impl Compiler {
             TokenType::LeftParen,
             ParseRule {
                 prefix: Some(Compiler::grouping),
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::call),
+                precedence: Precedence::Call,
             },
         );
         compiler.precedence_map.insert(
@@ -548,6 +549,7 @@ impl Compiler {
     }
 
     fn emit_return(&mut self) {
+        self.emit_byte(OpCode::Nil as u8);
         self.emit_byte(OpCode::Return as u8);
     }
 
@@ -745,6 +747,33 @@ impl Compiler {
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
 
+    fn argument_list(&mut self) -> u8 {
+        let mut arg_count: u8 = 0;
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if arg_count == 255 {
+                    self.error("Can't have more than 255 arguments.");
+                }
+
+                self.expression();
+                arg_count += 1;
+
+                if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen, "Expect ')' after arguments.");
+        return arg_count;
+    }
+
+    fn call(&mut self, _can_assign: bool) {
+        let arg_count = self.argument_list();
+        self.emit_bytes(OpCode::Call as u8, arg_count);
+    }
+
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
 
@@ -916,6 +945,23 @@ impl Compiler {
         }
 
         self.end_scope();
+    }
+
+    fn return_statement(&mut self) {
+        match self.function_type {
+            FunctionType::Script => {
+                self.error("Can't return from top-level code.");
+            }
+            _ => {}
+        }
+
+        if self.match_token(TokenType::Semicolon) {
+            self.emit_return();
+        } else {
+            self.expression();
+            self.consume(TokenType::Semicolon, "Expect ';' after return value.");
+            self.emit_byte(OpCode::Return as u8);
+        }
     }
 
     fn add_local(&mut self, name: Token) {
@@ -1121,6 +1167,8 @@ impl Compiler {
             self.emit_byte(OpCode::Print as u8);
         } else if self.match_token(TokenType::If) {
             self.if_statement();
+        } else if self.match_token(TokenType::Return) {
+            self.return_statement();
         } else if self.match_token(TokenType::While) {
             self.while_statement();
         } else if self.match_token(TokenType::For) {

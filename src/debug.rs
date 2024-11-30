@@ -156,6 +156,11 @@ pub mod print_debug {
                 println!("op code loop");
                 return offset + 3;
             }
+            OpCode::Call => {
+                let slot = chunk.code[offset + 1];
+                println!("OP_CALL {}", slot);
+                return offset + 2;
+            }
         }
     }
 
@@ -318,6 +323,10 @@ pub mod write_debug {
                 );
             }
             OpCode::Loop => return ("opcode loop".to_owned(), offset + 3),
+            OpCode::Call => {
+                let slot = chunk.code[offset + 1];
+                return (format!("OP_CALL {}", slot), offset + 2);
+            }
         }
     }
 

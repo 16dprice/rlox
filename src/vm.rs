@@ -1,4 +1,4 @@
-use std::{array, collections::HashMap, ops::Index};
+use std::{array, char::MAX, collections::HashMap, ops::Index};
 
 use crate::{
     chunk::{Chunk, OpCode},
@@ -14,6 +14,7 @@ pub enum InterpretResult {
     RuntimeError,
 }
 
+#[derive(Debug)]
 pub struct CallFrame {
     pub function: Function,
     ip: usize,
@@ -28,6 +29,7 @@ pub trait ValueStack {
     fn set_value_at_idx(&mut self, index: usize, value: Value);
     fn peek(&self, distance: usize) -> Value;
     fn print_debug(&self) -> ();
+    fn size(&self) -> usize;
 }
 
 impl ValueStack for Vec<Value> {
@@ -56,9 +58,15 @@ impl ValueStack for Vec<Value> {
     }
 
     fn print_debug(&self) -> () {
+        let mut count = 0;
         for val in self.iter() {
-            println!("{:?}", val);
+            println!("Value {} -- {:?}", count, val);
+            count += 1;
         }
+    }
+
+    fn size(&self) -> usize {
+        return self.len();
     }
 }
 
@@ -141,28 +149,79 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
+    fn call(&mut self, func: Function, arg_count: u8) -> bool {
+        if arg_count != func.arity {
+            // TODO: runtime error
+            println!("Expected {} arguments but got {}", func.arity, arg_count);
+            return false;
+        }
+
+        if self.frame_count == MAX_FRAMES {
+            // TODO: runtime error
+            println!("Stack overflow.");
+            return false;
+        }
+
+        self.frames[self.frame_count].function = func;
+        self.frames[self.frame_count].ip = 0;
+        self.frames[self.frame_count].slot = self.value_stack.size() - (arg_count as usize) - 1;
+
+        self.frame_count += 1;
+
+        return true;
+    }
+
+    fn call_value(&mut self, callee: Value, arg_count: u8) -> bool {
+        match callee {
+            Value::Function(func) => {
+                return self.call(func, arg_count);
+            }
+            _ => {}
+        }
+        // TODO: runtime error
+        return false;
+    }
+
     fn run(&mut self) -> InterpretResult {
-        let frame = &mut self.frames[self.frame_count - 1];
+        macro_rules! frame {
+            () => {
+                &mut self.frames[self.frame_count - 1]
+            };
+        }
+
+        macro_rules! read_byte {
+            () => {{
+                frame!().ip += 1;
+                let ip = frame!().ip;
+                frame!().function.chunk.code[ip - 1]
+            }};
+        }
 
         macro_rules! get_instruction {
-            () => {
-                OpCode::from_u8(frame.function.chunk.code[frame.ip])
-            };
+            () => {{
+                frame!().ip += 1;
+                let ip = frame!().ip;
+                OpCode::from_u8(frame!().function.chunk.code[ip - 1])
+            }};
         }
 
         macro_rules! read_constant {
             () => {{
-                frame.ip += 1;
-                let constant_index = frame.function.chunk.code[frame.ip];
-                &frame.function.chunk.constants[constant_index as usize]
+                frame!().ip += 1;
+                let ip = frame!().ip;
+                let constant_index = frame!().function.chunk.code[ip - 1];
+                &frame!().function.chunk.constants[constant_index as usize]
             }};
         }
 
         macro_rules! read_short {
             () => {{
-                frame.ip += 2;
-                (frame.function.chunk.code[frame.ip - 1] as u16) << 8
-                    | frame.function.chunk.code[frame.ip] as u16
+                frame!().ip += 2;
+                let ip = frame!().ip;
+                let first = (frame!().function.chunk.code[ip - 2] as u16) << 8;
+                let second = frame!().function.chunk.code[ip - 1] as u16;
+
+                first | second
             }};
         }
 
@@ -176,9 +235,21 @@ impl<T: ValueStack> VM<T> {
                         Some(Value::Number(num1)) => {
                             self.value_stack.push(Value::Number(num1 $op num2));
                         }
-                        _ => return InterpretResult::RuntimeError,
+                        _ => {
+                            let ip = frame!().ip;
+                            let line = frame!().function.chunk.lines[ip];
+
+                            println!("[Error on line {}]\nPerforming binary operation because LHS isn't a number. LHS = {:?}", line, a);
+                            return InterpretResult::RuntimeError;
+                        }
                     },
-                    _ => return InterpretResult::RuntimeError,
+                    _ => {
+                        let ip = frame!().ip;
+                        let line = frame!().function.chunk.lines[ip];
+
+                        println!("[Error on line {}]\nPerforming binary operation because RHS isn't a number. RHS = {:?}", line, b);
+                        return InterpretResult::RuntimeError;
+                    }
                 }
             };
         }
@@ -188,7 +259,20 @@ impl<T: ValueStack> VM<T> {
 
             match instruction {
                 OpCode::Return => {
-                    return InterpretResult::Ok;
+                    let result = self.value_stack.pop();
+                    let slot = frame!().slot;
+
+                    self.frame_count -= 1;
+
+                    if self.frame_count == 0 {
+                        self.value_stack.pop();
+                        return InterpretResult::Ok;
+                    }
+
+                    while self.value_stack.size() > slot {
+                        self.value_stack.pop();
+                    }
+                    self.value_stack.push(result.unwrap());
                 }
                 OpCode::Constant => {
                     let constant = read_constant!();
@@ -382,39 +466,42 @@ impl<T: ValueStack> VM<T> {
                     }
                 }
                 OpCode::GetLocal => {
-                    // the frame instruction pointer gets incremented
-                    // then, the vm value stack should get a value pushed onto
-                    // the stack based on the value at that stack slot
-                    frame.ip += 1;
-                    let slot = frame.function.chunk.code[frame.ip];
+                    // println!("{}", frame!().ip);
+                    // println!("{}", frame!().slot);
+                    // self.value_stack.print_debug();
 
+                    let slot = read_byte!() + frame!().slot as u8;
                     self.value_stack
                         .push(self.value_stack.get_value_at_idx(slot as usize));
                 }
                 OpCode::SetLocal => {
-                    frame.ip += 1;
-                    let slot = frame.function.chunk.code[frame.ip];
-
+                    let slot = read_byte!() + frame!().slot as u8;
                     let top_value = self.value_stack.peek(0);
                     self.value_stack.set_value_at_idx(slot as usize, top_value);
                 }
                 OpCode::JumpIfFalse => {
                     let offset = read_short!();
                     if VM::<T>::is_falsey(self.value_stack.peek(0)) {
-                        frame.ip += offset as usize;
+                        frame!().ip += offset as usize;
                     }
                 }
                 OpCode::Jump => {
                     let offset = read_short!();
-                    frame.ip += offset as usize;
+                    frame!().ip += offset as usize;
                 }
                 OpCode::Loop => {
                     let offset = read_short!();
-                    frame.ip -= offset as usize;
+                    frame!().ip -= offset as usize;
+                }
+                OpCode::Call => {
+                    let arg_count = read_byte!();
+                    let callee = self.value_stack.peek(arg_count as usize).clone();
+
+                    if !self.call_value(callee, arg_count) {
+                        return InterpretResult::RuntimeError;
+                    }
                 }
             }
-
-            frame.ip += 1;
         }
     }
 
@@ -427,12 +514,7 @@ impl<T: ValueStack> VM<T> {
             None => return InterpretResult::CompileError,
             Some(func) => {
                 self.value_stack.push(Value::Function(func.to_owned()));
-
-                self.frames[self.frame_count].function = func.to_owned();
-                self.frames[self.frame_count].ip = 0;
-                self.frames[self.frame_count].slot = 0;
-
-                self.frame_count += 1;
+                self.call(func.to_owned(), 0);
             }
         }
 
@@ -479,6 +561,10 @@ mod tests {
 
         fn print_debug(&self) -> () {
             println!("{:?}", self.values);
+        }
+
+        fn size(&self) -> usize {
+            return self.values.len();
         }
     }
 

@@ -53,7 +53,7 @@ fn run_file(file_path: &str) {
     let mut vm = VM::<Vec<Value>>::new();
     vm.interpret(source);
 
-    disassemble_chunk(&vm.frames[0].function.chunk, "First Chunk!");
+    // disassemble_chunk(&vm.frames[0].function.chunk, "First Chunk!");
 }
 
 fn debug_to_file(file_path: &str) {
