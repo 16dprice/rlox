@@ -17,6 +17,7 @@ fn get_value_debug_string(value: &Value) -> String {
                 format!("<script>")
             }
         },
+        Value::NativeFunction(_v) => "<native fn>".to_owned(),
     }
 }
 

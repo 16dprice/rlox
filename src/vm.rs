@@ -1,10 +1,16 @@
-use std::{array, char::MAX, collections::HashMap, ops::Index};
+use std::{
+    array,
+    char::MAX,
+    collections::HashMap,
+    ops::Index,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::{Compiler, FunctionType},
     scanner::Scanner,
-    value::{Function, Value},
+    value::{Function, NativeFunction, Value},
 };
 
 #[derive(Debug)]
@@ -84,7 +90,7 @@ pub struct VM<T: ValueStack> {
 
 impl<T: ValueStack> VM<T> {
     pub fn new() -> VM<Vec<Value>> {
-        VM {
+        let mut vm = VM {
             chunk: Chunk::new(),
             value_stack: Vec::new(),
             globals: HashMap::new(),
@@ -95,7 +101,17 @@ impl<T: ValueStack> VM<T> {
                 slot: 0,
             }),
             frame_count: 0,
-        }
+        };
+
+        vm.globals.insert(
+            String::from("clock"),
+            Value::NativeFunction(NativeFunction {
+                name: String::from("clock"),
+                arity: 0,
+            }),
+        );
+
+        return vm;
     }
 
     #[allow(dead_code)]
@@ -146,6 +162,9 @@ impl<T: ValueStack> VM<T> {
                     println!("<script>")
                 }
             },
+            Value::NativeFunction(_func) => {
+                println!("<native fn>");
+            }
         }
     }
 
@@ -171,15 +190,48 @@ impl<T: ValueStack> VM<T> {
         return true;
     }
 
+    fn call_native(&mut self, func: NativeFunction, arg_count: u8) -> bool {
+        if arg_count != func.arity {
+            // TODO: runtime error
+            println!("Expected {} arguments but got {}", func.arity, arg_count);
+            return false;
+        }
+
+        if self.frame_count == MAX_FRAMES {
+            // TODO: runtime error
+            println!("Stack overflow.");
+            return false;
+        }
+
+        match func.name.as_str() {
+            "clock" => {
+                let start = SystemTime::now();
+                let since_the_epoch = start
+                    .duration_since(UNIX_EPOCH)
+                    .expect("time went backwards.");
+                self.value_stack
+                    .push(Value::Number(since_the_epoch.as_millis() as f64));
+                return true;
+            }
+            _ => {
+                return false;
+            }
+        }
+    }
+
     fn call_value(&mut self, callee: Value, arg_count: u8) -> bool {
         match callee {
             Value::Function(func) => {
                 return self.call(func, arg_count);
             }
-            _ => {}
+            Value::NativeFunction(func) => {
+                return self.call_native(func, arg_count);
+            }
+            _ => {
+                // TODO: runtime error
+                return false;
+            }
         }
-        // TODO: runtime error
-        return false;
     }
 
     fn run(&mut self) -> InterpretResult {
@@ -372,6 +424,7 @@ impl<T: ValueStack> VM<T> {
                             _ => self.value_stack.push(Value::Boolean(false)),
                         },
                         Some(Value::Function(_)) => return InterpretResult::RuntimeError,
+                        Some(Value::NativeFunction(_)) => return InterpretResult::RuntimeError,
                         None => return InterpretResult::RuntimeError,
                     }
                 }
@@ -466,10 +519,6 @@ impl<T: ValueStack> VM<T> {
                     }
                 }
                 OpCode::GetLocal => {
-                    // println!("{}", frame!().ip);
-                    // println!("{}", frame!().slot);
-                    // self.value_stack.print_debug();
-
                     let slot = read_byte!() + frame!().slot as u8;
                     self.value_stack
                         .push(self.value_stack.get_value_at_idx(slot as usize));
@@ -577,18 +626,24 @@ mod tests {
         }
     }
 
-    fn get_last_value_on_value_stack(source: String, value_stack: TestValueStack) -> Option<Value> {
+    // The last value is always implicitly `Nil` due to the function semantics of the language
+    // so the second to last value is the one that's the result of actual computation.
+    fn get_second_to_last_value_on_value_stack(
+        source: String,
+        value_stack: TestValueStack,
+    ) -> Option<Value> {
         let source = String::from(source);
         let mut vm = VM::new_with_value_stack(value_stack);
 
         vm.interpret(source);
 
+        vm.value_stack.all_values.pop();
         return vm.value_stack.all_values.pop();
     }
 
     #[test]
     fn basic_arithmetic() {
-        let last_value = get_last_value_on_value_stack(
+        let last_value = get_second_to_last_value_on_value_stack(
             String::from("1 + 2;"),
             TestValueStack::new(&mut Vec::new()),
         );
@@ -606,7 +661,7 @@ mod tests {
     #[test]
     fn simple_greater_than() {
         // Expect false
-        let last_value = get_last_value_on_value_stack(
+        let last_value = get_second_to_last_value_on_value_stack(
             String::from("2 > 3;"),
             TestValueStack::new(&mut Vec::new()),
         );
@@ -616,7 +671,7 @@ mod tests {
         }
 
         // Expect true
-        let last_value = get_last_value_on_value_stack(
+        let last_value = get_second_to_last_value_on_value_stack(
             String::from("3 > 2;"),
             TestValueStack::new(&mut Vec::new()),
         );
@@ -629,7 +684,7 @@ mod tests {
     #[test]
     fn simple_less_than() {
         // Expect false
-        let last_value = get_last_value_on_value_stack(
+        let last_value = get_second_to_last_value_on_value_stack(
             String::from("3 < 2;"),
             TestValueStack::new(&mut Vec::new()),
         );
@@ -639,7 +694,7 @@ mod tests {
         }
 
         // Expect true
-        let last_value = get_last_value_on_value_stack(
+        let last_value = get_second_to_last_value_on_value_stack(
             String::from("2 < 3;"),
             TestValueStack::new(&mut Vec::new()),
         );
@@ -651,7 +706,7 @@ mod tests {
 
     #[test]
     fn string_concatenation() {
-        let last_value = get_last_value_on_value_stack(
+        let last_value = get_second_to_last_value_on_value_stack(
             String::from("\"one \" + \"two \" + \"three\";"),
             TestValueStack::new(&mut Vec::new()),
         );

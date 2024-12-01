@@ -20,12 +20,19 @@ impl Function {
 }
 
 #[derive(Debug, Clone)]
+pub struct NativeFunction {
+    pub name: String,
+    pub arity: u8,
+}
+
+#[derive(Debug, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
     Function(Function),
+    NativeFunction(NativeFunction),
 }
 
 impl fmt::Display for Value {
@@ -55,6 +62,9 @@ impl fmt::Display for Value {
                     write!(f, "<script>")
                 }
             },
+            Value::NativeFunction(_func) => {
+                write!(f, "<native fn>")
+            }
         }
     }
 }
