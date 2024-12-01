@@ -166,12 +166,14 @@ pub mod print_debug {
     }
 
     pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
-        println!("== {} ==", name);
+        println!("==== {} ====\n\n", name);
 
         let mut offset = 0;
         while offset < chunk.code.len() {
             offset = disassemble_instruction(chunk, offset);
         }
+
+        println!("\n\n==== END CHUNK DISASSEMBLY ====\n\n");
     }
 }
 

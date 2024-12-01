@@ -5,11 +5,11 @@ mod scanner;
 mod value;
 mod vm;
 
-use chunk::Chunk;
 use compiler::{Compiler, FunctionType};
 use debug::print_debug::disassemble_chunk;
 use debug::write_debug::write_chunk_to_file;
 use scanner::Scanner;
+use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use value::Value;
@@ -51,9 +51,12 @@ fn run_file(file_path: &str) {
         .expect("Could not write file to string");
 
     let mut vm = VM::<Vec<Value>>::new();
-    vm.interpret(source);
 
-    // disassemble_chunk(&vm.frames[0].function.chunk, "First Chunk!");
+    println!("==== BEGIN PROGRAM OUTPUT ====\n\n");
+    vm.interpret(source);
+    println!("\n\n==== END PROGRAM OUTPUT ====\n\n");
+
+    disassemble_chunk(&vm.frames[0].function.chunk, "TOP LEVEL CHUNK");
 }
 
 fn debug_to_file(file_path: &str) {
@@ -77,14 +80,30 @@ fn debug_to_file(file_path: &str) {
 }
 
 fn main() {
-    // let use_repl = true;
+    let args: Vec<String> = env::args().collect();
+    assert!(args.len() >= 2);
 
-    // debug_to_file("./data/test.rlox");
-    run_file("./data/test.rlox");
-
-    // if use_repl {
-    //     repl();
-    // } else {
-    //     run_file("./data/test.rlox");
-    // }
+    let mode = &args[1];
+    match mode.as_str() {
+        "repl" => {
+            repl();
+        }
+        "file" => {
+            if args.len() >= 3 {
+                run_file(&args[2]);
+            } else {
+                run_file("./data/test.rlox");
+            }
+        }
+        "debug" => {
+            if args.len() >= 3 {
+                debug_to_file(&args[2]);
+            } else {
+                debug_to_file("./data/test.rlox");
+            }
+        }
+        _ => {
+            panic!("Unsupported mode: {mode}");
+        }
+    }
 }

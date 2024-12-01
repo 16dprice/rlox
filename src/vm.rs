@@ -1,8 +1,6 @@
 use std::{
     array,
-    char::MAX,
     collections::HashMap,
-    ops::Index,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -34,8 +32,10 @@ pub trait ValueStack {
     fn get_value_at_idx(&self, index: usize) -> Value;
     fn set_value_at_idx(&mut self, index: usize, value: Value);
     fn peek(&self, distance: usize) -> Value;
-    fn print_debug(&self) -> ();
     fn size(&self) -> usize;
+
+    #[allow(dead_code)]
+    fn print_debug(&self) -> ();
 }
 
 impl ValueStack for Vec<Value> {

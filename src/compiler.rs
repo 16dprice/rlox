@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::{fmt, u8};
 
 use crate::chunk::{Chunk, OpCode};
-use crate::debug::print_debug::disassemble_chunk;
 use crate::scanner::{Scanner, Token, TokenType};
 use crate::value::Function;
 
@@ -969,11 +968,6 @@ impl Compiler {
             self.error("Too many local variables in block");
             return;
         }
-
-        let mut current_local = self.locals[self.local_count as usize];
-
-        // current_local.name = name;
-        // current_local.depth = None;
 
         self.locals[self.local_count as usize].name = name;
         self.locals[self.local_count as usize].depth = None;
