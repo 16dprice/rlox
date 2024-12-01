@@ -168,16 +168,48 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
+    // print all but the current frame
+    fn stack_trace(&self) -> String {
+        let mut output = String::new();
+
+        for frame_idx in 0..self.frame_count {
+            let frame = &self.frames[frame_idx];
+            let line = frame.function.chunk.lines[frame.ip];
+
+            match &frame.function.name {
+                Some(s) => {
+                    output.push_str(
+                        format!("Frame {} -- Call from {} on line {}\n", frame_idx, s, line)
+                            .as_str(),
+                    );
+                }
+                None => {
+                    output.push_str(
+                        format!("Frame {} -- Call from main on line {}\n", frame_idx, line)
+                            .as_str(),
+                    );
+                }
+            }
+        }
+
+        return output;
+    }
+
+    fn runtime_error(&self, message: &str) {
+        let stack_trace = self.stack_trace();
+        println!("{}\n{}", stack_trace, message);
+    }
+
     fn call(&mut self, func: Function, arg_count: u8) -> bool {
         if arg_count != func.arity {
-            // TODO: runtime error
-            println!("Expected {} arguments but got {}", func.arity, arg_count);
+            self.runtime_error(
+                format!("Expected {} arguments but got {}", func.arity, arg_count).as_str(),
+            );
             return false;
         }
 
         if self.frame_count == MAX_FRAMES {
-            // TODO: runtime error
-            println!("Stack overflow.");
+            self.runtime_error("Stack overflow.");
             return false;
         }
 
@@ -192,14 +224,14 @@ impl<T: ValueStack> VM<T> {
 
     fn call_native(&mut self, func: NativeFunction, arg_count: u8) -> bool {
         if arg_count != func.arity {
-            // TODO: runtime error
-            println!("Expected {} arguments but got {}", func.arity, arg_count);
+            self.runtime_error(
+                format!("Expected {} arguments but got {}", func.arity, arg_count).as_str(),
+            );
             return false;
         }
 
         if self.frame_count == MAX_FRAMES {
-            // TODO: runtime error
-            println!("Stack overflow.");
+            self.runtime_error("Stack overflow.");
             return false;
         }
 
@@ -209,11 +241,15 @@ impl<T: ValueStack> VM<T> {
                 let since_the_epoch = start
                     .duration_since(UNIX_EPOCH)
                     .expect("time went backwards.");
+
+                self.value_stack.pop();
                 self.value_stack
                     .push(Value::Number(since_the_epoch.as_millis() as f64));
+
                 return true;
             }
-            _ => {
+            s => {
+                self.runtime_error(format!("No native function named '{}'", s).as_str());
                 return false;
             }
         }
@@ -342,7 +378,17 @@ impl<T: ValueStack> VM<T> {
                             Some(Value::String(s1)) => self
                                 .value_stack
                                 .push(Value::String(format!("{}{}", s1, num2))),
-                            _ => return InterpretResult::RuntimeError,
+                            value => {
+                                let value = value.to_owned();
+                                self.runtime_error(
+                                    format!(
+                                        "LHS of addition can't be added to a number: {:?}",
+                                        value
+                                    )
+                                    .as_str(),
+                                );
+                                return InterpretResult::RuntimeError;
+                            }
                         },
                         Some(Value::String(s2)) => match a {
                             Some(Value::String(s1)) => {
@@ -352,9 +398,26 @@ impl<T: ValueStack> VM<T> {
                             Some(Value::Number(n)) => {
                                 self.value_stack.push(Value::String(format!("{}{}", n, s2)));
                             }
-                            _ => return InterpretResult::RuntimeError,
+                            value => {
+                                let value = value.to_owned();
+                                self.runtime_error(
+                                    format!(
+                                        "LHS of addition can't be added to a string: {:?}",
+                                        value
+                                    )
+                                    .as_str(),
+                                );
+                                return InterpretResult::RuntimeError;
+                            }
                         },
-                        _ => return InterpretResult::RuntimeError,
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("RHS of addition is an invalid addend: {:?}", value)
+                                    .as_str(),
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 OpCode::Subtract => {
@@ -489,13 +552,20 @@ impl<T: ValueStack> VM<T> {
                                     self.value_stack.push(value.to_owned());
                                 }
                                 None => {
-                                    // TODO: Add better error handling here
+                                    let var_name = s.to_owned();
+                                    self.runtime_error(
+                                        format!("Global var '{}' does not exist.", var_name)
+                                            .as_str(),
+                                    );
                                     return InterpretResult::RuntimeError;
                                 }
                             }
                         }
-                        _ => {
-                            // TODO: Add better error handling here
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("Invalid global accessor: {:?}", value).as_str(),
+                            );
                             return InterpretResult::RuntimeError;
                         }
                     }

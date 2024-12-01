@@ -15,9 +15,6 @@ fun fib(n) {
 
 var start = clock();
 
-print "25th fibonacci number: " + fib(25);
+print "4th fibonacci number: " + fib(4);
 print "Number of iterations: " + count;
-
-var time = clock() - start;
-
-print "Time to calculate: " + time;
+print "Time to calculate: " + (clock() - start);
