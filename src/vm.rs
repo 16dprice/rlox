@@ -445,7 +445,10 @@ impl<T: ValueStack> VM<T> {
                         Some(value) => self
                             .value_stack
                             .push(Value::Boolean(VM::<T>::is_falsey(value))),
-                        _ => return InterpretResult::RuntimeError,
+                        None => {
+                            self.runtime_error("Can't perform negation on 'None' value.");
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 OpCode::Negate => {
@@ -453,7 +456,13 @@ impl<T: ValueStack> VM<T> {
 
                     match v {
                         Some(Value::Number(n)) => self.value_stack.push(Value::Number(-n)),
-                        _ => return InterpretResult::RuntimeError,
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("Can't negate non-numeric value: {:?}", value).as_str(),
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 OpCode::Equal => {
@@ -486,9 +495,8 @@ impl<T: ValueStack> VM<T> {
                             }
                             _ => self.value_stack.push(Value::Boolean(false)),
                         },
-                        Some(Value::Function(_)) => return InterpretResult::RuntimeError,
-                        Some(Value::NativeFunction(_)) => return InterpretResult::RuntimeError,
                         None => return InterpretResult::RuntimeError,
+                        _ => self.value_stack.push(Value::Boolean(false)),
                     }
                 }
                 OpCode::Greater => {
@@ -500,9 +508,22 @@ impl<T: ValueStack> VM<T> {
                             Some(Value::Number(num1)) => {
                                 self.value_stack.push(Value::Boolean(num1 > num2))
                             }
-                            _ => return InterpretResult::RuntimeError,
+                            value => {
+                                let value = value.to_owned();
+                                self.runtime_error(
+                                    format!("Can't perform > operation on value {:?}", value)
+                                        .as_str(),
+                                );
+                                return InterpretResult::RuntimeError;
+                            }
                         },
-                        _ => return InterpretResult::RuntimeError,
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("Can't perform > operation on value {:?}", value).as_str(),
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 OpCode::Less => {
@@ -514,9 +535,22 @@ impl<T: ValueStack> VM<T> {
                             Some(Value::Number(num1)) => {
                                 self.value_stack.push(Value::Boolean(num1 < num2))
                             }
-                            _ => return InterpretResult::RuntimeError,
+                            value => {
+                                let value = value.to_owned();
+                                self.runtime_error(
+                                    format!("Can't perform < operation on value {:?}", value)
+                                        .as_str(),
+                                );
+                                return InterpretResult::RuntimeError;
+                            }
                         },
-                        _ => return InterpretResult::RuntimeError,
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("Can't perform < operation on value {:?}", value).as_str(),
+                            );
+                            return InterpretResult::RuntimeError;
+                        }
                     }
                 }
                 OpCode::Print => match self.value_stack.pop() {
@@ -536,7 +570,12 @@ impl<T: ValueStack> VM<T> {
                             self.globals.insert(s.to_owned(), value);
                             self.value_stack.pop();
                         }
-                        _ => {
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("Can't define global with non-string constant {:?}", value)
+                                    .as_str(),
+                            );
                             return InterpretResult::RuntimeError;
                         }
                     }
@@ -576,14 +615,20 @@ impl<T: ValueStack> VM<T> {
                     match name {
                         Value::String(s) => {
                             if !self.globals.contains_key(s) {
-                                // TODO: Add better error handling here
+                                let s = s.to_owned();
+                                self.runtime_error(
+                                    format!("Global var '{}' does not exist.", s).as_str(),
+                                );
                                 return InterpretResult::RuntimeError;
                             }
                             let value = self.value_stack.last_value().unwrap();
                             self.globals.insert(s.to_owned(), value);
                         }
-                        _ => {
-                            // TODO: Add better error handling here
+                        value => {
+                            let value = value.to_owned();
+                            self.runtime_error(
+                                format!("Invalid global accessor: {:?}", value).as_str(),
+                            );
                             return InterpretResult::RuntimeError;
                         }
                     }
@@ -616,7 +661,8 @@ impl<T: ValueStack> VM<T> {
                     let arg_count = read_byte!();
                     let callee = self.value_stack.peek(arg_count as usize).clone();
 
-                    if !self.call_value(callee, arg_count) {
+                    if !self.call_value(callee.clone(), arg_count) {
+                        // Proper error reporting already happens inside of call_value
                         return InterpretResult::RuntimeError;
                     }
                 }
