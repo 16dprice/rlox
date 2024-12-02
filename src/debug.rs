@@ -17,7 +17,15 @@ fn get_value_debug_string(value: &Value) -> String {
                 format!("<script>")
             }
         },
-        Value::NativeFunction(_v) => "<native fn>".to_owned(),
+        Value::NativeFunction(v) => format!("<native fn {}>", v.name),
+        Value::Closure(v) => match &v.function.name {
+            Some(name) => {
+                format!("<fn {}>", name)
+            }
+            None => {
+                format!("<script>")
+            }
+        },
     }
 }
 
@@ -160,6 +168,31 @@ pub mod print_debug {
             OpCode::Call => {
                 let slot = chunk.code[offset + 1];
                 println!("OP_CALL {}", slot);
+                return offset + 2;
+            }
+            OpCode::Closure => {
+                let slot = chunk.code[offset + 1];
+                println!("OP_CLOSURE {}", slot);
+                return offset + 2;
+            }
+            OpCode::GetUpvalue => {
+                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                println!(
+                    "{}: {}",
+                    OpCode::GetUpvalue,
+                    get_value_debug_string(constant)
+                );
+
+                return offset + 2;
+            }
+            OpCode::SetUpvalue => {
+                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                println!(
+                    "{}: {}",
+                    OpCode::SetUpvalue,
+                    get_value_debug_string(constant)
+                );
+
                 return offset + 2;
             }
         }
@@ -329,6 +362,16 @@ pub mod write_debug {
             OpCode::Call => {
                 let slot = chunk.code[offset + 1];
                 return (format!("OP_CALL {}", slot), offset + 2);
+            }
+            OpCode::Closure => {
+                let slot = chunk.code[offset + 1];
+                return (format!("OP_CLOSURE {}", slot), offset + 2);
+            }
+            OpCode::GetUpvalue => {
+                todo!("get upvalue");
+            }
+            OpCode::SetUpvalue => {
+                todo!("set upvalue");
             }
         }
     }

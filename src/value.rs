@@ -7,6 +7,7 @@ pub struct Function {
     pub arity: u8,
     pub chunk: Chunk,
     pub name: Option<String>,
+    pub upvalue_count: u8,
 }
 
 impl Function {
@@ -15,6 +16,7 @@ impl Function {
             arity: 0,
             chunk: Chunk::new(),
             name: None,
+            upvalue_count: 0,
         }
     }
 }
@@ -26,6 +28,11 @@ pub struct NativeFunction {
 }
 
 #[derive(Debug, Clone)]
+pub struct Closure {
+    pub function: Function,
+}
+
+#[derive(Debug, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
@@ -33,6 +40,7 @@ pub enum Value {
     String(String),
     Function(Function),
     NativeFunction(NativeFunction),
+    Closure(Closure),
 }
 
 impl fmt::Display for Value {
@@ -62,9 +70,17 @@ impl fmt::Display for Value {
                     write!(f, "<script>")
                 }
             },
-            Value::NativeFunction(_func) => {
-                write!(f, "<native fn>")
+            Value::NativeFunction(func) => {
+                write!(f, "<native fn {}>", func.name)
             }
+            Value::Closure(closure) => match &closure.function.name {
+                Some(name) => {
+                    write!(f, "<closure {}>", name)
+                }
+                None => {
+                    write!(f, "<closure>")
+                }
+            },
         }
     }
 }

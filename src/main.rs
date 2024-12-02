@@ -56,7 +56,7 @@ fn run_file(file_path: &str) {
     vm.interpret(source);
     println!("\n\n==== END PROGRAM OUTPUT ====\n\n");
 
-    disassemble_chunk(&vm.frames[0].function.chunk, "TOP LEVEL CHUNK");
+    disassemble_chunk(&vm.frames[0].closure.function.chunk, "TOP LEVEL CHUNK");
 }
 
 fn debug_to_file(file_path: &str) {
@@ -68,7 +68,7 @@ fn debug_to_file(file_path: &str) {
         .expect("Could not write file to string");
 
     let scanner = Scanner::new(source.clone());
-    let mut compiler = Compiler::new(scanner, FunctionType::Script);
+    let mut compiler = Compiler::new(scanner, FunctionType::Script, None);
 
     let compile_result = compiler.compile(None);
     if compile_result.is_none() {

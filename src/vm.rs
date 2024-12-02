@@ -8,7 +8,7 @@ use crate::{
     chunk::{Chunk, OpCode},
     compiler::{Compiler, FunctionType},
     scanner::Scanner,
-    value::{Function, NativeFunction, Value},
+    value::{Closure, Function, NativeFunction, Value},
 };
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ pub enum InterpretResult {
 
 #[derive(Debug)]
 pub struct CallFrame {
-    pub function: Function,
+    pub closure: Closure,
     ip: usize,
     slot: usize, // <-- pointer into vm value stack
 }
@@ -96,7 +96,9 @@ impl<T: ValueStack> VM<T> {
             globals: HashMap::new(),
 
             frames: array::from_fn(move |_| CallFrame {
-                function: Function::new(),
+                closure: Closure {
+                    function: Function::new(),
+                },
                 ip: 0,
                 slot: 0,
             }),
@@ -122,7 +124,9 @@ impl<T: ValueStack> VM<T> {
             globals: HashMap::new(),
 
             frames: array::from_fn(move |_| CallFrame {
-                function: Function::new(),
+                closure: Closure {
+                    function: Function::new(),
+                },
                 ip: 0,
                 slot: 0,
             }),
@@ -165,6 +169,14 @@ impl<T: ValueStack> VM<T> {
             Value::NativeFunction(_func) => {
                 println!("<native fn>");
             }
+            Value::Closure(closure) => match &closure.function.name {
+                Some(name) => {
+                    println!("<closure {}>", name);
+                }
+                None => {
+                    println!("<closure>");
+                }
+            },
         }
     }
 
@@ -174,9 +186,9 @@ impl<T: ValueStack> VM<T> {
 
         for frame_idx in 0..self.frame_count {
             let frame = &self.frames[frame_idx];
-            let line = frame.function.chunk.lines[frame.ip];
+            let line = frame.closure.function.chunk.lines[frame.ip];
 
-            match &frame.function.name {
+            match &frame.closure.function.name {
                 Some(s) => {
                     output.push_str(
                         format!("Frame {} -- Call from {} on line {}\n", frame_idx, s, line)
@@ -200,10 +212,14 @@ impl<T: ValueStack> VM<T> {
         println!("{}\n{}", stack_trace, message);
     }
 
-    fn call(&mut self, func: Function, arg_count: u8) -> bool {
-        if arg_count != func.arity {
+    fn call(&mut self, closure: Closure, arg_count: u8) -> bool {
+        if arg_count != closure.function.arity {
             self.runtime_error(
-                format!("Expected {} arguments but got {}", func.arity, arg_count).as_str(),
+                format!(
+                    "Expected {} arguments but got {}",
+                    closure.function.arity, arg_count
+                )
+                .as_str(),
             );
             return false;
         }
@@ -213,7 +229,7 @@ impl<T: ValueStack> VM<T> {
             return false;
         }
 
-        self.frames[self.frame_count].function = func;
+        self.frames[self.frame_count].closure = closure;
         self.frames[self.frame_count].ip = 0;
         self.frames[self.frame_count].slot = self.value_stack.size() - (arg_count as usize) - 1;
 
@@ -257,14 +273,15 @@ impl<T: ValueStack> VM<T> {
 
     fn call_value(&mut self, callee: Value, arg_count: u8) -> bool {
         match callee {
-            Value::Function(func) => {
-                return self.call(func, arg_count);
+            Value::Closure(closure) => {
+                return self.call(closure, arg_count);
             }
             Value::NativeFunction(func) => {
                 return self.call_native(func, arg_count);
             }
-            _ => {
-                // TODO: runtime error
+            v => {
+                let v = v.to_owned();
+                self.runtime_error(format!("Can't call value {:?}", v).as_str());
                 return false;
             }
         }
@@ -281,7 +298,7 @@ impl<T: ValueStack> VM<T> {
             () => {{
                 frame!().ip += 1;
                 let ip = frame!().ip;
-                frame!().function.chunk.code[ip - 1]
+                frame!().closure.function.chunk.code[ip - 1]
             }};
         }
 
@@ -289,7 +306,7 @@ impl<T: ValueStack> VM<T> {
             () => {{
                 frame!().ip += 1;
                 let ip = frame!().ip;
-                OpCode::from_u8(frame!().function.chunk.code[ip - 1])
+                OpCode::from_u8(frame!().closure.function.chunk.code[ip - 1])
             }};
         }
 
@@ -297,8 +314,8 @@ impl<T: ValueStack> VM<T> {
             () => {{
                 frame!().ip += 1;
                 let ip = frame!().ip;
-                let constant_index = frame!().function.chunk.code[ip - 1];
-                &frame!().function.chunk.constants[constant_index as usize]
+                let constant_index = frame!().closure.function.chunk.code[ip - 1];
+                &frame!().closure.function.chunk.constants[constant_index as usize]
             }};
         }
 
@@ -306,8 +323,8 @@ impl<T: ValueStack> VM<T> {
             () => {{
                 frame!().ip += 2;
                 let ip = frame!().ip;
-                let first = (frame!().function.chunk.code[ip - 2] as u16) << 8;
-                let second = frame!().function.chunk.code[ip - 1] as u16;
+                let first = (frame!().closure.function.chunk.code[ip - 2] as u16) << 8;
+                let second = frame!().closure.function.chunk.code[ip - 1] as u16;
 
                 first | second
             }};
@@ -325,7 +342,7 @@ impl<T: ValueStack> VM<T> {
                         }
                         _ => {
                             let ip = frame!().ip;
-                            let line = frame!().function.chunk.lines[ip];
+                            let line = frame!().closure.function.chunk.lines[ip];
 
                             println!("[Error on line {}]\nPerforming binary operation because LHS isn't a number. LHS = {:?}", line, a);
                             return InterpretResult::RuntimeError;
@@ -333,7 +350,7 @@ impl<T: ValueStack> VM<T> {
                     },
                     _ => {
                         let ip = frame!().ip;
-                        let line = frame!().function.chunk.lines[ip];
+                        let line = frame!().closure.function.chunk.lines[ip];
 
                         println!("[Error on line {}]\nPerforming binary operation because RHS isn't a number. RHS = {:?}", line, b);
                         return InterpretResult::RuntimeError;
@@ -661,10 +678,33 @@ impl<T: ValueStack> VM<T> {
                     let arg_count = read_byte!();
                     let callee = self.value_stack.peek(arg_count as usize).clone();
 
-                    if !self.call_value(callee.clone(), arg_count) {
+                    if !self.call_value(callee, arg_count) {
                         // Proper error reporting already happens inside of call_value
                         return InterpretResult::RuntimeError;
                     }
+                }
+                OpCode::Closure => {
+                    let value = read_constant!();
+
+                    match value {
+                        Value::Function(func) => self.value_stack.push(Value::Closure(Closure {
+                            function: func.to_owned(),
+                        })),
+                        v => {
+                            let v = v.to_owned();
+                            self.runtime_error(
+                                format!("Can't create closure from {:?}", v).as_str(),
+                            );
+
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+                OpCode::GetUpvalue => {
+                    todo!("");
+                }
+                OpCode::SetUpvalue => {
+                    todo!("");
                 }
             }
         }
@@ -672,14 +712,18 @@ impl<T: ValueStack> VM<T> {
 
     pub fn interpret(&mut self, source: String) -> InterpretResult {
         let scanner = Scanner::new(source);
-        let mut compiler = Compiler::new(scanner, FunctionType::Script);
+        let mut compiler = Compiler::new(scanner, FunctionType::Script, None);
 
         let compile_result = compiler.compile(None);
         match compile_result {
             None => return InterpretResult::CompileError,
             Some(func) => {
-                self.value_stack.push(Value::Function(func.to_owned()));
-                self.call(func.to_owned(), 0);
+                let closure = Closure {
+                    function: func.to_owned(),
+                };
+
+                self.value_stack.push(Value::Closure(closure.clone()));
+                self.call(closure.to_owned(), 0);
             }
         }
 
