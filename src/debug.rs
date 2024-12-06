@@ -26,6 +26,7 @@ fn get_value_debug_string(value: &Value) -> String {
                 format!("<script>")
             }
         },
+        Value::Upvalue(up) => format!("<upvalue {:?}>", up),
     }
 }
 
@@ -172,8 +173,30 @@ pub mod print_debug {
             }
             OpCode::Closure => {
                 let slot = chunk.code[offset + 1];
-                println!("OP_CLOSURE {}", slot);
-                return offset + 2;
+                let value = &chunk.constants[slot as usize];
+                let mut offset_inc_value = 2;
+
+                match value {
+                    Value::Function(function) => {
+                        println!("OP_CLOSURE {:?}", function.name);
+
+                        for idx in 0..(function.upvalue_count as usize) {
+                            // at idx = 0, the index for the array access here is offset + 1 + 0 + 1
+                            // = offset + 2
+                            // which is what we want because offset + 1 is the index of the function value itself
+                            // and so the following chunk code location is the location of the is_local byte
+                            // and then the following code location after that is the index byte
+                            let is_local = chunk.code[(offset + 1) + (2 * idx + 1)];
+                            let index = chunk.code[(offset + 1) + (2 * idx + 2)];
+
+                            println!("is local: {}\nindex: {}", is_local, index);
+                        }
+                        offset_inc_value += 2 * function.upvalue_count;
+                    }
+                    v => panic!("Expect function at slot {} but received {:?}", slot, v),
+                }
+
+                return offset + offset_inc_value as usize;
             }
             OpCode::GetUpvalue => {
                 let constant = &chunk.constants[chunk.code[offset + 1] as usize];

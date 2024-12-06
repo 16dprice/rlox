@@ -73,7 +73,7 @@ struct Local {
     depth: Option<u16>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Upvalue {
     index: u8,
     is_local: bool,
@@ -113,7 +113,7 @@ pub struct Compiler {
 
     function: Function,
     function_type: FunctionType,
-    upvalues: [Upvalue; u8::MAX as usize + 1],
+    upvalues: [Option<Upvalue>; u8::MAX as usize + 1],
 }
 
 impl Compiler {
@@ -138,10 +138,7 @@ impl Compiler {
 
             function: Function::new(),
             function_type,
-            upvalues: [Upvalue {
-                index: 0,
-                is_local: false,
-            }; u8::MAX as usize + 1],
+            upvalues: [None; u8::MAX as usize + 1],
         };
 
         compiler.locals[0].depth = Some(0);
@@ -649,74 +646,6 @@ impl Compiler {
         return a_lexeme.eq(b_lexeme);
     }
 
-    fn resolve_local(&mut self, name: Token) -> Option<usize> {
-        // iterates from (self.local_count - 1) to 0
-        for idx in (0..self.local_count as usize).rev() {
-            let local = self.locals[idx];
-
-            if self.identifiers_equal(name, local.name) {
-                match local.depth {
-                    None => {
-                        self.error("Can't read local variable in its own initializer");
-                    }
-                    _ => {}
-                }
-                return Some(idx);
-            }
-        }
-        return None;
-    }
-
-    fn add_upvalue(&mut self, index: usize, is_local: bool) -> usize {
-        let upvalue_count = self.function.upvalue_count as usize;
-
-        for idx in 0..upvalue_count {
-            // if it already exists in the upvalues
-            if index == self.upvalues[idx].index as usize && is_local == self.upvalues[idx].is_local
-            {
-                return idx;
-            }
-        }
-
-        if upvalue_count == u8::MAX as usize + 1 {
-            self.error("Too many closure variables in function.");
-            return 0;
-        }
-
-        self.upvalues[upvalue_count].is_local = is_local;
-        self.upvalues[upvalue_count].index = index as u8;
-
-        self.function.upvalue_count += 1;
-        return self.function.upvalue_count as usize;
-    }
-
-    fn resolve_upvalue(&mut self, name: Token) -> Option<usize> {
-        match &self.enclosing {
-            None => {
-                return None;
-            }
-            Some(compiler) => {
-                let value = compiler.to_owned().resolve_local(name);
-
-                match value {
-                    None => {
-                        let upvalue = compiler.to_owned().resolve_upvalue(name);
-
-                        match upvalue {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => return Some(self.add_upvalue(idx, false)),
-                        }
-                    }
-                    Some(idx) => {
-                        return Some(self.add_upvalue(idx, true));
-                    }
-                }
-            }
-        }
-    }
-
     fn named_variable(&mut self, name: Token, can_assign: bool) {
         let get_operation: OpCode;
         let set_operation: OpCode;
@@ -828,33 +757,6 @@ impl Compiler {
     fn grouping(&mut self, _can_assign: bool) {
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
-    }
-
-    fn argument_list(&mut self) -> u8 {
-        let mut arg_count: u8 = 0;
-
-        if !self.check(TokenType::RightParen) {
-            loop {
-                if arg_count == 255 {
-                    self.error("Can't have more than 255 arguments.");
-                }
-
-                self.expression();
-                arg_count += 1;
-
-                if !self.match_token(TokenType::Comma) {
-                    break;
-                }
-            }
-        }
-
-        self.consume(TokenType::RightParen, "Expect ')' after arguments.");
-        return arg_count;
-    }
-
-    fn call(&mut self, _can_assign: bool) {
-        let arg_count = self.argument_list();
-        self.emit_bytes(OpCode::Call as u8, arg_count);
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) {
@@ -1047,18 +949,6 @@ impl Compiler {
         }
     }
 
-    fn add_local(&mut self, name: Token) {
-        if self.local_count as usize == u8::MAX as usize + 1 {
-            self.error("Too many local variables in block");
-            return;
-        }
-
-        self.locals[self.local_count as usize].name = name;
-        self.locals[self.local_count as usize].depth = None;
-
-        self.local_count += 1;
-    }
-
     fn declare_variable(&mut self) {
         if self.scope_depth == 0 {
             return;
@@ -1153,6 +1043,113 @@ impl Compiler {
         self.define_variable(global_index);
     }
 
+    fn resolve_local(&mut self, name: Token) -> Option<usize> {
+        // iterates from (self.local_count - 1) to 0
+        for idx in (0..self.local_count as usize).rev() {
+            let local = self.locals[idx];
+
+            if self.identifiers_equal(name, local.name) {
+                match local.depth {
+                    None => {
+                        self.error("Can't read local variable in its own initializer");
+                    }
+                    _ => {}
+                }
+                return Some(idx);
+            }
+        }
+        return None;
+    }
+
+    fn add_upvalue(&mut self, index: usize, is_local: bool) -> usize {
+        let upvalue_count = self.function.upvalue_count as usize;
+
+        for idx in 0..upvalue_count {
+            match self.upvalues[idx] {
+                None => {}
+                Some(value) => {
+                    // if it already exists in the upvalues
+                    if index == value.index as usize && is_local == value.is_local {
+                        return idx;
+                    }
+                }
+            }
+        }
+
+        if upvalue_count == u8::MAX as usize + 1 {
+            self.error("Too many closure variables in function.");
+            return 0;
+        }
+
+        self.upvalues[upvalue_count] = Some(Upvalue {
+            is_local,
+            index: index as u8,
+        });
+
+        self.function.upvalue_count += 1;
+        return (self.function.upvalue_count - 1) as usize;
+    }
+
+    fn resolve_upvalue(&mut self, name: Token) -> Option<usize> {
+        match &self.enclosing {
+            None => return None,
+            Some(compiler) => {
+                let value = compiler.to_owned().resolve_local(name);
+
+                match value {
+                    None => {
+                        let upvalue = compiler.to_owned().resolve_upvalue(name);
+
+                        match upvalue {
+                            None => return None,
+                            Some(idx) => return Some(self.add_upvalue(idx, false)),
+                        }
+                    }
+                    Some(idx) => return Some(self.add_upvalue(idx, true)),
+                }
+            }
+        }
+    }
+
+    fn argument_list(&mut self) -> u8 {
+        let mut arg_count: u8 = 0;
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if arg_count == 255 {
+                    self.error("Can't have more than 255 arguments.");
+                }
+
+                self.expression();
+                arg_count += 1;
+
+                if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen, "Expect ')' after arguments.");
+        return arg_count;
+    }
+
+    fn call(&mut self, _can_assign: bool) {
+        let arg_count = self.argument_list();
+        self.emit_bytes(OpCode::Call as u8, arg_count);
+    }
+
+    fn add_local(&mut self, name: Token) {
+        if self.local_count as usize == u8::MAX as usize + 1 {
+            self.error("Too many local variables in block");
+            return;
+        }
+
+        self.locals[self.local_count as usize].name = name;
+        self.locals[self.local_count as usize].depth = None;
+
+        self.local_count += 1;
+    }
+
     fn function(&mut self, function_type: FunctionType) {
         let mut compiler = Compiler::new(
             self.scanner.to_owned(),
@@ -1200,9 +1197,15 @@ impl Compiler {
         let func_index = self.current_chunk().write_function(func);
         self.emit_bytes(OpCode::Closure as u8, func_index as u8);
 
-        for upvalue in self.upvalues {
-            self.emit_byte(if upvalue.is_local { 1 } else { 0 });
-            self.emit_byte(upvalue.index);
+        for upvalue in compiler.upvalues {
+            match upvalue {
+                None => {}
+                Some(upvalue) => {
+                    // println!("emitting upvalue");
+                    self.emit_byte(if upvalue.is_local { 1 } else { 0 });
+                    self.emit_byte(upvalue.index);
+                }
+            }
         }
 
         // TODO: find a better way to patch back the

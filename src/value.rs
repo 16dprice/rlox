@@ -30,6 +30,26 @@ pub struct NativeFunction {
 #[derive(Debug, Clone)]
 pub struct Closure {
     pub function: Function,
+    pub upvalues: Vec<Upvalue>,
+}
+
+impl Closure {
+    pub fn new(func: Function) -> Closure {
+        let mut upvalues = Vec::new();
+        for _ in 0..func.upvalue_count {
+            upvalues.push(Upvalue { location: 0 });
+        }
+
+        Closure {
+            function: func,
+            upvalues,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Upvalue {
+    pub location: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +61,7 @@ pub enum Value {
     Function(Function),
     NativeFunction(NativeFunction),
     Closure(Closure),
+    Upvalue(Upvalue),
 }
 
 impl fmt::Display for Value {
@@ -81,6 +102,9 @@ impl fmt::Display for Value {
                     write!(f, "<closure>")
                 }
             },
+            Value::Upvalue(up) => {
+                write!(f, "<upvalue>")
+            }
         }
     }
 }

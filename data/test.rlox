@@ -1,20 +1,11 @@
-var count = 0;
-
-fun fib(n) {
-    count = count + 1;
-
-    if (n == 1) {
-        return 1;
-    }
-    if (n == 2) {
-        return 1;
-    }
-
-    return fib(n - 2) + fib(n - 1);
+fun f(x) {
+    return x * x + x - 5;
 }
 
-var start = clock();
+print limit(f);
 
-print "4th fibonacci number: " + fib(20);
-print "Number of iterations: " + count;
-print "Time to calculate: " + (clock() - start);
+print limit(-0.5);
+print limit(0.5);
+print limit(0);
+
+//poly = expression: x^2 + x - 5;

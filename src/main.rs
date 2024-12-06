@@ -84,6 +84,7 @@ fn main() {
     assert!(args.len() >= 2);
 
     let mode = &args[1];
+    // let mode = String::from("file");
     match mode.as_str() {
         "repl" => {
             repl();
