@@ -57,7 +57,7 @@ fn run_file(file_path: &str) {
     vm.interpret(source);
     println!("\n\n==== END PROGRAM OUTPUT ====\n\n");
 
-    disassemble_chunk(&vm.frames[0].closure.function.chunk, "TOP LEVEL CHUNK");
+    // disassemble_chunk(&vm.frames[0].closure.function.chunk, "TOP LEVEL CHUNK");
 }
 
 fn debug_to_file(file_path: &str) {
@@ -82,10 +82,10 @@ fn debug_to_file(file_path: &str) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    assert!(args.len() >= 2);
+    // assert!(args.len() >= 2);
 
-    let mode = &args[1];
-    // let mode = String::from("file");
+    // let mode = &args[1];
+    let mode = String::from("file");
     match mode.as_str() {
         "repl" => {
             repl();

@@ -199,24 +199,19 @@ pub mod print_debug {
                 return offset + offset_inc_value as usize;
             }
             OpCode::GetUpvalue => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-                println!(
-                    "{}: {}",
-                    OpCode::GetUpvalue,
-                    get_value_debug_string(constant)
-                );
+                let slot = chunk.code[offset + 1];
+                println!("{}: {}", OpCode::GetUpvalue, slot);
 
                 return offset + 2;
             }
             OpCode::SetUpvalue => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-                println!(
-                    "{}: {}",
-                    OpCode::SetUpvalue,
-                    get_value_debug_string(constant)
-                );
+                let slot = chunk.code[offset + 1];
+                println!("{}: {}", OpCode::SetUpvalue, slot);
 
                 return offset + 2;
+            }
+            OpCode::CloseUpvalue => {
+                return simple_instruction(format!("{}", OpCode::CloseUpvalue).as_str(), offset)
             }
         }
     }
@@ -395,6 +390,9 @@ pub mod write_debug {
             }
             OpCode::SetUpvalue => {
                 todo!("set upvalue");
+            }
+            OpCode::CloseUpvalue => {
+                todo!("close upvalue in debug");
             }
         }
     }

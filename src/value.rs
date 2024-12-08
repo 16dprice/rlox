@@ -37,7 +37,12 @@ impl Closure {
     pub fn new(func: Function) -> Closure {
         let mut upvalues = Vec::new();
         for _ in 0..func.upvalue_count {
-            upvalues.push(Upvalue { location: 0 });
+            upvalues.push(Upvalue {
+                location: 0,
+                next: None,
+                closed: None,
+                index: 0,
+            });
         }
 
         Closure {
@@ -50,6 +55,9 @@ impl Closure {
 #[derive(Debug, Clone)]
 pub struct Upvalue {
     pub location: usize,
+    pub next: Option<Box<Upvalue>>,
+    pub closed: Option<Box<Value>>,
+    pub index: usize,
 }
 
 #[derive(Debug, Clone)]

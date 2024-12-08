@@ -33,6 +33,7 @@ pub enum OpCode {
     Closure = 25,
     GetUpvalue = 26,
     SetUpvalue = 27,
+    CloseUpvalue = 28,
 }
 
 impl fmt::Display for OpCode {
@@ -122,6 +123,9 @@ impl fmt::Display for OpCode {
             OpCode::SetUpvalue => {
                 write!(f, "OP_SET_UPVALUE")
             }
+            OpCode::CloseUpvalue => {
+                write!(f, "OP_CLOSE_UPVALUE")
+            }
         }
     }
 }
@@ -157,6 +161,7 @@ impl OpCode {
             25 => Some(OpCode::Closure),
             26 => Some(OpCode::GetUpvalue),
             27 => Some(OpCode::SetUpvalue),
+            28 => Some(OpCode::CloseUpvalue),
             _ => None,
         }
     }

@@ -1,11 +1,19 @@
-fun f(x) {
-    return x * x + x - 5;
+fun outer() {
+  var x = "outside";
+  
+  fun middle() {
+    var y = "middleside";
+    print x;
+
+    fun inner() {
+        print x + y;
+    }
+
+    return inner;
+  }
+
+  return middle();
 }
 
-print limit(f);
-
-print limit(-0.5);
-print limit(0.5);
-print limit(0);
-
-//poly = expression: x^2 + x - 5;
+var closure = outer();
+closure();

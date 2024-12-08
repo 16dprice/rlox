@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::{fmt, u8};
 
 use crate::chunk::{Chunk, OpCode};
+use crate::debug::print_debug::disassemble_chunk;
 use crate::scanner::{Scanner, Token, TokenType};
 use crate::value::Function;
 
@@ -66,10 +67,11 @@ struct ParseRule {
     precedence: Precedence,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Local {
     name: Token,
     depth: Option<u16>,
+    is_captured: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -133,6 +135,7 @@ impl Compiler {
             locals: [Local {
                 name: Token::default(),
                 depth: Some(0),
+                is_captured: false,
             }; u8::MAX as usize + 1],
 
             function: Function::new(),
@@ -140,9 +143,12 @@ impl Compiler {
             upvalues: [None; u8::MAX as usize + 1],
         };
 
+        // Most of these fields are already initialized to these values
+        // but being pedantic never hurt anyone
         compiler.locals[0].depth = Some(0);
         compiler.locals[0].name.start = 0;
         compiler.locals[0].name.length = 0;
+        compiler.locals[0].is_captured = false;
         compiler.local_count += 1;
 
         compiler.precedence_map.insert(
@@ -580,11 +586,18 @@ impl Compiler {
 
     fn end_scope(&mut self) {
         self.scope_depth -= 1;
+        for i in 0..self.local_count as usize {
+            println!("{:?}", self.locals[i]);
+        }
 
         while self.local_count > 0
             && self.locals[self.local_count as usize - 1].depth.unwrap() > self.scope_depth
         {
-            self.emit_byte(OpCode::Pop as u8);
+            if self.locals[self.local_count as usize - 1].is_captured {
+                self.emit_byte(OpCode::CloseUpvalue as u8);
+            } else {
+                self.emit_byte(OpCode::Pop as u8);
+            }
             self.local_count -= 1;
         }
     }
@@ -1080,6 +1093,8 @@ impl Compiler {
             return 0;
         }
 
+        // if it is a local, then index points to the index in the locals array
+        // else, it points to the index in the upvalues array
         self.upvalues[upvalue_count] = Some(Upvalue {
             is_local,
             index: index as u8,
@@ -1090,21 +1105,24 @@ impl Compiler {
     }
 
     fn resolve_upvalue(&mut self, name: Token) -> Option<usize> {
-        match &self.enclosing {
-            None => return None,
+        match &mut self.enclosing {
+            None => return None, // must be a global var or an error
             Some(compiler) => {
-                let value = compiler.to_owned().resolve_local(name);
+                let value = compiler.resolve_local(name);
 
                 match value {
                     None => {
-                        let upvalue = compiler.to_owned().resolve_upvalue(name);
+                        let upvalue = compiler.resolve_upvalue(name);
 
                         match upvalue {
-                            None => return None,
+                            None => return None, // must be a global var or an error
                             Some(idx) => return Some(self.add_upvalue(idx, false)),
                         }
                     }
-                    Some(idx) => return Some(self.add_upvalue(idx, true)),
+                    Some(idx) => {
+                        compiler.locals[idx].is_captured = true;
+                        return Some(self.add_upvalue(idx, true));
+                    }
                 }
             }
         }
@@ -1191,7 +1209,23 @@ impl Compiler {
         compiler.consume(TokenType::LeftBrace, "Expect '{' before function body.");
         compiler.block();
 
+        // We have to capture this information about local capture like this because
+        // copies of `self` are created to pass in as the enclosing compiler and so
+        // the actual locals in `self` don't ever get modified
+        match &compiler.enclosing {
+            Some(enclosing) => {
+                let enclosing_locals = enclosing.locals;
+                for i in 0..self.local_count as usize {
+                    self.locals[i].is_captured = enclosing_locals[i].is_captured;
+                }
+            }
+            _ => {}
+        }
+
         let func = compiler.end_compiler().to_owned();
+
+        // disassemble_chunk(&func.chunk, format!("{:?}", &func.name).as_str());
+        // println!("{:?}", func);
 
         let func_index = self.current_chunk().write_function(func);
         self.emit_bytes(OpCode::Closure as u8, func_index as u8);
@@ -1200,7 +1234,6 @@ impl Compiler {
             match upvalue {
                 None => {}
                 Some(upvalue) => {
-                    // println!("emitting upvalue");
                     self.emit_byte(if upvalue.is_local { 1 } else { 0 });
                     self.emit_byte(upvalue.index);
                 }

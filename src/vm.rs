@@ -7,6 +7,7 @@ use std::{
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::{Compiler, FunctionType},
+    debug::print_debug::disassemble_chunk,
     scanner::Scanner,
     value::{Closure, Function, NativeFunction, Upvalue, Value},
 };
@@ -86,6 +87,8 @@ pub struct VM<T: ValueStack> {
 
     pub frames: [CallFrame; MAX_FRAMES],
     frame_count: usize,
+
+    open_upvalue_head: Option<Box<Upvalue>>,
 }
 
 impl<T: ValueStack> VM<T> {
@@ -93,6 +96,7 @@ impl<T: ValueStack> VM<T> {
         let mut vm = VM {
             chunk: Chunk::new(),
             value_stack: Vec::new(),
+
             globals: HashMap::new(),
 
             frames: array::from_fn(move |_| CallFrame {
@@ -101,6 +105,8 @@ impl<T: ValueStack> VM<T> {
                 slot: 0,
             }),
             frame_count: 0,
+
+            open_upvalue_head: None,
         };
 
         vm.globals.insert(
@@ -126,6 +132,7 @@ impl<T: ValueStack> VM<T> {
         VM {
             chunk: Chunk::new(),
             value_stack,
+
             globals: HashMap::new(),
 
             frames: array::from_fn(move |_| CallFrame {
@@ -134,6 +141,8 @@ impl<T: ValueStack> VM<T> {
                 slot: 0,
             }),
             frame_count: 0,
+
+            open_upvalue_head: None,
         }
     }
 
@@ -269,6 +278,7 @@ impl<T: ValueStack> VM<T> {
                 return true;
             }
             "limit" => {
+                todo!("Clean this up to do more interesting things");
                 let maybe_number = self.value_stack.pop();
                 self.value_stack.pop(); // pop off the function itself
 
@@ -333,10 +343,71 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
-    fn capture_value(&mut self, index: usize) -> Upvalue {
-        return Upvalue {
+    fn capture_upvalue(&mut self, index: usize) -> Upvalue {
+        let mut previous_upvalue: Option<Box<Upvalue>> = None;
+        let mut upvalue = self.open_upvalue_head.clone();
+
+        while upvalue.clone().is_some()
+            && upvalue.clone().unwrap().location > self.frames[self.frame_count - 1].slot + index
+        {
+            previous_upvalue = upvalue.clone();
+            upvalue = upvalue.unwrap().next;
+        }
+
+        // if the upvalue is the one we're looking for
+        if upvalue.is_some()
+            && upvalue.clone().unwrap().location == self.frames[self.frame_count - 1].slot + index
+        {
+            return *(upvalue.clone()).unwrap();
+        }
+
+        let mut new_upvalue = Upvalue {
             location: self.frames[self.frame_count - 1].slot + index,
+            index,
+            next: None,
+            closed: None,
         };
+        new_upvalue.next = upvalue;
+
+        if previous_upvalue.is_none() {
+            self.open_upvalue_head = Some(Box::new(new_upvalue.clone()));
+        } else {
+            previous_upvalue.unwrap().next = Some(Box::new(new_upvalue.clone()));
+        }
+
+        return new_upvalue;
+    }
+
+    fn close_upvalues(&mut self, closure: &mut Closure) {
+        let slot = self.frames[self.frame_count - 1].slot;
+
+        for idx in 0..closure.upvalues.len() {
+            match closure.upvalues[idx].closed {
+                None => {
+                    if closure.upvalues[idx].location > slot {
+                        closure.upvalues[idx].closed = Some(Box::new(
+                            self.value_stack
+                                .get_value_at_idx(closure.upvalues[idx].location)
+                                .clone(),
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn debug_open_upvalue_list(&mut self) {
+        let mut head = self.open_upvalue_head.clone();
+
+        println!("======== START UPVALUE LIST ========\n");
+
+        while head.is_some() {
+            println!("UPVALUE LIST VALUE {:?}\n", head);
+            head = head.unwrap().next;
+        }
+
+        println!("\n======== END UPVALUE LIST ========");
     }
 
     fn run(&mut self) -> InterpretResult {
@@ -416,8 +487,15 @@ impl<T: ValueStack> VM<T> {
 
             match instruction {
                 OpCode::Return => {
-                    let result = self.value_stack.pop();
+                    let mut result = self.value_stack.pop().unwrap();
                     let slot = frame!().slot;
+
+                    match result {
+                        Value::Closure(ref mut closure) => {
+                            self.close_upvalues(closure);
+                        }
+                        _ => {}
+                    }
 
                     self.frame_count -= 1;
 
@@ -429,7 +507,7 @@ impl<T: ValueStack> VM<T> {
                     while self.value_stack.size() > slot {
                         self.value_stack.pop();
                     }
-                    self.value_stack.push(result.unwrap());
+                    self.value_stack.push(result);
                 }
                 OpCode::Constant => {
                     let constant = read_constant!();
@@ -623,9 +701,30 @@ impl<T: ValueStack> VM<T> {
                     }
                 }
                 OpCode::Print => match self.value_stack.pop() {
-                    Some(Value::Upvalue(upvalue)) => {
-                        VM::<T>::print_value(self.value_stack.get_value_at_idx(upvalue.location));
-                    }
+                    Some(Value::Upvalue(upvalue)) => match upvalue.closed {
+                        None => {
+                            /*
+                             * The issue is that in the C version of the code, the value of
+                             * an upvalue is accessed directly by just dereferencing the location
+                             * property, which points directly to the place in memory where
+                             * the value itself lives.
+                             *
+                             * In the Rust paradigm here, that's all fucked because the location
+                             * is meant to point to an index in the value stack. When a value gets
+                             * closed, the value stack by definition no longer has the value in it.
+                             *
+                             * So, any pointer to an index in the value stack means nothing. How in
+                             * the world could I fix this?
+                             */
+                            VM::<T>::print_value(
+                                self.value_stack.get_value_at_idx(upvalue.location),
+                            );
+                        }
+                        Some(closed) => {
+                            println!("here?");
+                            VM::<T>::print_value(*closed);
+                        }
+                    },
                     Some(v) => VM::<T>::print_value(v),
                     _ => return InterpretResult::RuntimeError,
                 },
@@ -748,15 +847,14 @@ impl<T: ValueStack> VM<T> {
                             for idx in 0..closure.upvalues.len() {
                                 let is_local = read_byte!();
                                 let index = read_byte!() as usize;
-                                if is_local == 1 {
-                                    if idx >= closure.upvalues.len() {
-                                        self.runtime_error("issue creating local upvalue");
-                                    }
 
-                                    closure.upvalues[idx] = self.capture_value(index);
+                                // If is_local == 1, then the index value points to a local in the enclosing scope
+                                // else, it points to an upvalue in the enclosing scope
+                                if is_local == 1 {
+                                    closure.upvalues[idx] = self.capture_upvalue(index);
                                 } else {
-                                    if idx >= frame!().closure.upvalues.len() {
-                                        self.runtime_error("issue creating higher upvalue");
+                                    if index >= frame!().closure.upvalues.len() {
+                                        self.runtime_error("error creating higher upvalue");
                                     }
                                     closure.upvalues[idx] =
                                         frame!().closure.upvalues[index].clone();
@@ -777,15 +875,24 @@ impl<T: ValueStack> VM<T> {
                 }
                 OpCode::GetUpvalue => {
                     let slot = read_byte!();
-                    self.value_stack.push(Value::Upvalue(
-                        frame!().closure.upvalues[slot as usize].clone(),
-                    ));
+
+                    let upvalue = frame!().closure.upvalues[slot as usize].clone();
+
+                    match upvalue.closed {
+                        Some(v) => {
+                            self.value_stack.push(*v);
+                        }
+                        None => {
+                            self.value_stack.push(Value::Upvalue(upvalue));
+                        }
+                    }
                 }
                 OpCode::SetUpvalue => {
                     let slot = read_byte!();
 
-                    let upvalue = self.value_stack.peek(0).clone();
-                    match upvalue {
+                    todo!("how exactly to handle this?");
+                    let value = self.value_stack.peek(0).clone();
+                    match value {
                         Value::Upvalue(upvalue) => {
                             frame!().closure.upvalues[slot as usize] = upvalue;
                         }
@@ -793,6 +900,11 @@ impl<T: ValueStack> VM<T> {
                             self.runtime_error("Top of value stack isn't an upvalue.");
                         }
                     }
+                }
+                OpCode::CloseUpvalue => {
+                    todo!("what do i do here");
+                    // self.close_upvalues(self.value_stack.size() - 1);
+                    // self.value_stack.pop();
                 }
             }
         }
