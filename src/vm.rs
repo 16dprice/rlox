@@ -889,15 +889,20 @@ impl<T: ValueStack> VM<T> {
                 }
                 OpCode::SetUpvalue => {
                     let slot = read_byte!();
+                    let value_on_top_of_stack = self.value_stack.peek(0).clone();
+                    let closed_value = &frame!().closure.upvalues[slot as usize].closed;
 
-                    todo!("how exactly to handle this?");
-                    let value = self.value_stack.peek(0).clone();
-                    match value {
-                        Value::Upvalue(upvalue) => {
-                            frame!().closure.upvalues[slot as usize] = upvalue;
+                    // If the upvalue that we're setting has been closed, we should set the closed value
+                    // Else, we should set the value in the value stack that it points at
+                    match closed_value {
+                        Some(_) => {
+                            frame!().closure.upvalues[slot as usize].closed =
+                                Some(Box::new(value_on_top_of_stack));
                         }
-                        _ => {
-                            self.runtime_error("Top of value stack isn't an upvalue.");
+                        None => {
+                            let location = frame!().closure.upvalues[slot as usize].location;
+                            self.value_stack
+                                .set_value_at_idx(location, value_on_top_of_stack);
                         }
                     }
                 }
