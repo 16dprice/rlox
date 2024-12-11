@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
 use crate::chunk::Chunk;
 
@@ -61,6 +61,17 @@ pub struct Upvalue {
 }
 
 #[derive(Debug, Clone)]
+pub struct Class {
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Instance {
+    pub class: Class,
+    pub fields: HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
@@ -70,6 +81,8 @@ pub enum Value {
     NativeFunction(NativeFunction),
     Closure(Closure),
     Upvalue(Upvalue),
+    Class(Class),
+    Instance(Rc<RefCell<Instance>>),
 }
 
 impl fmt::Display for Value {
@@ -111,7 +124,13 @@ impl fmt::Display for Value {
                 }
             },
             Value::Upvalue(up) => {
-                write!(f, "<upvalue>")
+                write!(f, "<upvalue {}>", up.location)
+            }
+            Value::Class(c) => {
+                write!(f, "{}", c.name)
+            }
+            Value::Instance(i) => {
+                write!(f, "{} instance", i.borrow().class.name)
             }
         }
     }

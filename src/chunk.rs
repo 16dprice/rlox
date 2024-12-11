@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::value::{Function, Value};
+use crate::value::{Class, Function, Value};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -34,6 +34,9 @@ pub enum OpCode {
     GetUpvalue = 26,
     SetUpvalue = 27,
     CloseUpvalue = 28,
+    Class = 29,
+    GetProperty = 30,
+    SetProperty = 31,
 }
 
 impl fmt::Display for OpCode {
@@ -126,6 +129,15 @@ impl fmt::Display for OpCode {
             OpCode::CloseUpvalue => {
                 write!(f, "OP_CLOSE_UPVALUE")
             }
+            OpCode::Class => {
+                write!(f, "OP_CLASS")
+            }
+            OpCode::GetProperty => {
+                write!(f, "OP_GET_PROPERTY")
+            }
+            OpCode::SetProperty => {
+                write!(f, "OP_SET_PROPERTY")
+            }
         }
     }
 }
@@ -162,6 +174,9 @@ impl OpCode {
             26 => Some(OpCode::GetUpvalue),
             27 => Some(OpCode::SetUpvalue),
             28 => Some(OpCode::CloseUpvalue),
+            29 => Some(OpCode::Class),
+            30 => Some(OpCode::GetProperty),
+            31 => Some(OpCode::SetProperty),
             _ => None,
         }
     }
@@ -200,6 +215,11 @@ impl Chunk {
 
     pub fn write_function(&mut self, f: Function) -> usize {
         self.constants.push(Value::Function(f));
+        return self.constants.len() - 1;
+    }
+
+    pub fn write_class(&mut self, c: Class) -> usize {
+        self.constants.push(Value::Class(c));
         return self.constants.len() - 1;
     }
 }

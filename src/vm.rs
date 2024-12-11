@@ -1,6 +1,8 @@
 use std::{
     array,
+    cell::RefCell,
     collections::HashMap,
+    rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -9,7 +11,7 @@ use crate::{
     compiler::{Compiler, FunctionType},
     debug::print_debug::disassemble_chunk,
     scanner::Scanner,
-    value::{Closure, Function, NativeFunction, Upvalue, Value},
+    value::{Closure, Function, Instance, NativeFunction, Upvalue, Value},
 };
 
 #[derive(Debug)]
@@ -190,6 +192,8 @@ impl<T: ValueStack> VM<T> {
                 }
             },
             Value::Upvalue(upvalue) => println!("{:?}", upvalue),
+            Value::Class(c) => println!("{}", c.name),
+            Value::Instance(i) => println!("{} instance", i.borrow().class.name),
         }
     }
 
@@ -329,6 +333,16 @@ impl<T: ValueStack> VM<T> {
 
     fn call_value(&mut self, callee: Value, arg_count: u8) -> bool {
         match callee {
+            Value::Class(class) => {
+                self.value_stack.set_value_at_idx(
+                    self.value_stack.size() - arg_count as usize - 1,
+                    Value::Instance(Rc::new(RefCell::new(Instance {
+                        class: class.clone(),
+                        fields: HashMap::new(),
+                    }))),
+                );
+                return true;
+            }
             Value::Closure(closure) => {
                 return self.call(closure, arg_count);
             }
@@ -741,6 +755,12 @@ impl<T: ValueStack> VM<T> {
                             self.globals.insert(s.to_owned(), value);
                             self.value_stack.pop();
                         }
+                        Value::Class(c) => {
+                            let value = self.value_stack.last_value().unwrap();
+
+                            self.globals.insert(c.name.to_owned(), value);
+                            self.value_stack.pop();
+                        }
                         value => {
                             let value = value.to_owned();
                             self.runtime_error(
@@ -910,6 +930,80 @@ impl<T: ValueStack> VM<T> {
                     todo!("what do i do here");
                     // self.close_upvalues(self.value_stack.size() - 1);
                     // self.value_stack.pop();
+                }
+                OpCode::Class => {
+                    let value = read_constant!();
+                    self.value_stack.push(value.clone());
+                }
+                OpCode::GetProperty => {
+                    let instance = self.value_stack.peek(0);
+                    let property_name = read_constant!().clone();
+
+                    match instance {
+                        Value::Instance(instance) => match property_name {
+                            Value::String(property_name) => {
+                                let owned_instance = Rc::clone(&instance);
+                                let borrowed_instance = owned_instance.borrow();
+                                let value_of_property =
+                                    borrowed_instance.fields.get(&property_name);
+
+                                match value_of_property {
+                                    Some(value) => {
+                                        self.value_stack.pop();
+                                        self.value_stack.push(value.clone());
+                                    }
+                                    None => {
+                                        self.runtime_error(
+                                            format!("Undefined property '{}'.", property_name)
+                                                .as_str(),
+                                        );
+                                    }
+                                }
+                            }
+                            _ => {
+                                self.runtime_error(
+                                        format!("Value {:?} is not a valid property accessor (must be a string).", property_name).as_str(),
+                                    );
+                            }
+                        },
+                        _ => {
+                            self.runtime_error(
+                                format!("Value {:?} is not an instance.", instance).as_str(),
+                            );
+                        }
+                    }
+                }
+                OpCode::SetProperty => {
+                    let instance = self.value_stack.peek(1);
+                    let value_to_set_as = self.value_stack.peek(0);
+                    let property_name = read_constant!().clone();
+
+                    match instance {
+                        Value::Instance(instance) => {
+                            let mut new_instance = instance.borrow_mut();
+                            match property_name {
+                                Value::String(property_name) => {
+                                    new_instance
+                                        .fields
+                                        .insert(property_name.clone(), value_to_set_as);
+                                }
+                                _ => {
+                                    self.runtime_error(
+                                        format!("Value {:?} is not a valid property accessor (must be a string).", property_name).as_str(),
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            self.runtime_error(
+                                format!("Value {:?} is not an instance.", instance).as_str(),
+                            );
+                        }
+                    }
+
+                    let value = self.value_stack.pop();
+                    self.value_stack.pop();
+                    self.value_stack.push(value.unwrap());
                 }
             }
         }

@@ -4,7 +4,7 @@ use std::{fmt, u8};
 use crate::chunk::{Chunk, OpCode};
 use crate::debug::print_debug::disassemble_chunk;
 use crate::scanner::{Scanner, Token, TokenType};
-use crate::value::Function;
+use crate::value::{Class, Function};
 
 #[derive(Debug, Clone)]
 struct Parser {
@@ -195,8 +195,8 @@ impl Compiler {
             TokenType::Dot,
             ParseRule {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Compiler::dot),
+                precedence: Precedence::Call,
             },
         );
         compiler.precedence_map.insert(
@@ -771,6 +771,21 @@ impl Compiler {
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
 
+    fn dot(&mut self, can_assign: bool) {
+        self.consume(TokenType::Identifier, "Expect property name after '.'.");
+        let lexeme = self.scanner.source[self.parser.previous.start
+            ..(self.parser.previous.start + self.parser.previous.length)]
+            .to_owned();
+        let index_of_name = self.current_chunk().write_string(lexeme);
+
+        if can_assign && self.match_token(TokenType::Equal) {
+            self.expression();
+            self.emit_bytes(OpCode::SetProperty as u8, index_of_name as u8);
+        } else {
+            self.emit_bytes(OpCode::GetProperty as u8, index_of_name as u8);
+        }
+    }
+
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
 
@@ -1254,6 +1269,23 @@ impl Compiler {
         self.define_variable(global_index);
     }
 
+    fn class_declaration(&mut self) {
+        self.consume(TokenType::Identifier, "Expect class name.");
+
+        let lexeme = self.scanner.source[self.parser.previous.start
+            ..(self.parser.previous.start + self.parser.previous.length)]
+            .to_owned();
+        let index_of_class_name = self.current_chunk().write_class(Class { name: lexeme });
+
+        self.declare_variable();
+
+        self.emit_bytes(OpCode::Class as u8, index_of_class_name as u8);
+        self.define_variable(index_of_class_name as u8);
+
+        self.consume(TokenType::LeftBrace, "Expect '{' before class body.");
+        self.consume(TokenType::RightBrace, "Expect '}' after class body.");
+    }
+
     fn synchronize(&mut self) {
         self.parser.panic_mode = false;
 
@@ -1310,7 +1342,7 @@ impl Compiler {
         } else if self.match_token(TokenType::Fun) {
             self.fun_declaration();
         } else if self.match_token(TokenType::Class) {
-            todo!("class token handling hasn't been implemented");
+            self.class_declaration();
         } else {
             self.statement();
         }

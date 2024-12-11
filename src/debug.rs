@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use crate::{
     chunk::{Chunk, OpCode},
     value::Value,
@@ -27,6 +29,8 @@ fn get_value_debug_string(value: &Value) -> String {
             }
         },
         Value::Upvalue(up) => format!("<upvalue {:?}>", up),
+        Value::Class(c) => format!("{}", c.name),
+        Value::Instance(i) => format!("{}", i.borrow().class.name),
     }
 }
 
@@ -213,6 +217,15 @@ pub mod print_debug {
             OpCode::CloseUpvalue => {
                 return simple_instruction(format!("{}", OpCode::CloseUpvalue).as_str(), offset)
             }
+            OpCode::Class => {
+                todo!("class in disassemble_instruction");
+            }
+            OpCode::GetProperty => {
+                todo!("get property");
+            }
+            OpCode::SetProperty => {
+                todo!("set property");
+            }
         }
     }
 
@@ -393,6 +406,15 @@ pub mod write_debug {
             }
             OpCode::CloseUpvalue => {
                 todo!("close upvalue in debug");
+            }
+            OpCode::Class => {
+                todo!("class in debug to file");
+            }
+            OpCode::GetProperty => {
+                todo!("get property");
+            }
+            OpCode::SetProperty => {
+                todo!("set property");
             }
         }
     }

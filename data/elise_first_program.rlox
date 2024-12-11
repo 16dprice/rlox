@@ -1,0 +1,3 @@
+var x = "I love you";
+var y = 3000;
+print x + " " + y;

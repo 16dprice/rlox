@@ -1,0 +1,23 @@
+fun outer() {
+  var x = 7;
+  
+  fun middle() {
+    var y = "middleside";
+    print x;
+
+    fun inner() {
+        x = x + 1;
+        print x + y;
+    }
+
+    return inner;
+  }
+
+  return middle();
+}
+
+var closure = outer();
+
+closure();
+closure();
+closure();

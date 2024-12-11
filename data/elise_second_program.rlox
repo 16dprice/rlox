@@ -1,0 +1,4 @@
+fun love(n) {
+    print " I love you " + n;
+}
+love(3000000);
