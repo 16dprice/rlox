@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::{fmt, u8};
 
 use crate::chunk::{Chunk, OpCode};
-use crate::debug::print_debug::disassemble_chunk;
 use crate::scanner::{Scanner, Token, TokenType};
 use crate::value::{Class, Function};
 

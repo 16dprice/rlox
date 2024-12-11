@@ -9,7 +9,6 @@ use std::{
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::{Compiler, FunctionType},
-    debug::print_debug::disassemble_chunk,
     scanner::Scanner,
     value::{Closure, Function, Instance, NativeFunction, Upvalue, Value},
 };
@@ -255,6 +254,7 @@ impl<T: ValueStack> VM<T> {
         return true;
     }
 
+    #[allow(unreachable_code)]
     fn call_native(&mut self, func: NativeFunction, arg_count: u8) -> bool {
         if arg_count != func.arity {
             self.runtime_error(
@@ -411,6 +411,7 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
+    #[allow(dead_code)]
     fn debug_open_upvalue_list(&mut self) {
         let mut head = self.open_upvalue_head.clone();
 
