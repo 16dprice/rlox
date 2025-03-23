@@ -83,41 +83,31 @@ fn debug_to_file(file_path: &str) {
 }
 
 fn main() {
-    let json_object = mini_json::parse_from_file("/Users/djprice/Code/rlox/data/json/object.json");
-    match json_object {
-        Ok(object) => {
-            println!("{}", object);
+    let args: Vec<String> = env::args().collect();
+    // assert!(args.len() >= 2);
+
+    // let mode = &args[1];
+    let mode = String::from("file");
+    match mode.as_str() {
+        "repl" => {
+            repl();
         }
-        _ => {}
+        "file" => {
+            if args.len() >= 3 {
+                run_file(&args[2]);
+            } else {
+                run_file("./data/test.rlox");
+            }
+        }
+        "debug" => {
+            if args.len() >= 3 {
+                debug_to_file(&args[2]);
+            } else {
+                debug_to_file("./data/test.rlox");
+            }
+        }
+        _ => {
+            panic!("Unsupported mode: {mode}");
+        }
     }
 }
-
-// fn main() {
-//     let args: Vec<String> = env::args().collect();
-//     // assert!(args.len() >= 2);
-
-//     // let mode = &args[1];
-//     let mode = String::from("file");
-//     match mode.as_str() {
-//         "repl" => {
-//             repl();
-//         }
-//         "file" => {
-//             if args.len() >= 3 {
-//                 run_file(&args[2]);
-//             } else {
-//                 run_file("./data/test.rlox");
-//             }
-//         }
-//         "debug" => {
-//             if args.len() >= 3 {
-//                 debug_to_file(&args[2]);
-//             } else {
-//                 debug_to_file("./data/test.rlox");
-//             }
-//         }
-//         _ => {
-//             panic!("Unsupported mode: {mode}");
-//         }
-//     }
-// }
