@@ -33,7 +33,14 @@ export async function activate(
     clientOptions
   );
 
-  context.subscriptions.push(client.start());
+  await client.start();
+  context.subscriptions.push({
+    dispose: () => {
+      if (client) {
+        void client.stop();
+      }
+    },
+  });
 
   context.subscriptions.push(
     vscode.commands.registerCommand("rlox.restartLanguageServer", async () => {
@@ -42,7 +49,7 @@ export async function activate(
       }
 
       await client.stop();
-      client.start();
+      await client.start();
       vscode.window.showInformationMessage("Rlox language server restarted.");
     })
   );
