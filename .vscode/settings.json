@@ -25,5 +25,5 @@
         "titleBar.inactiveBackground": "#ff3d0099",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.color": "#ff3d00",
+    "rlox.languageServerPath": "/home/dj/Code/rlox/tools/rlox-lsp/target/debug/rlox-lsp"
 }
