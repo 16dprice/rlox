@@ -1,3 +1,5 @@
 /target
 /vscode/rlox-vscode/node_modules
 /vscode/rlox-vscode/dist
+/tools/rlox-lsp/target
+/tools/rlox-lsp/Cargo.lock
