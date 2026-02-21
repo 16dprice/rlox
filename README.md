@@ -60,6 +60,8 @@ cargo run --quiet -- debug data/test.rlox
 - `data/`: sample programs and debug artifacts
 - `data/examples/`: curated docs-focused runnable examples
 - `tests/docs_examples.rs`: integration tests for documented examples
+- `tools/rlox-lsp/`: Rust language server for editor integration
+- `vscode/rlox-vscode/`: local VS Code extension for `.rlox`
 
 ## Supported Language Features
 
@@ -92,6 +94,16 @@ Format code:
 ```bash
 cargo fmt
 ```
+
+## VS Code Language Support
+
+Local VS Code language support (syntax highlighting + basic LSP) is available in:
+
+- [`vscode/rlox-vscode/`](vscode/rlox-vscode)
+
+Setup and usage guide:
+
+- [`docs/vscode-language-support.md`](docs/vscode-language-support.md)
 
 ## Contributing
 

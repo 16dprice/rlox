@@ -2,6 +2,10 @@
     "editor.tabSize": 4,
     "editor.tabCompletion": "on",
     "editor.formatOnSave": true,
+    "rust-analyzer.linkedProjects": [
+        "Cargo.toml",
+        "tools/rlox-lsp/Cargo.toml"
+    ],
     "workbench.colorCustomizations": {
         "activityBar.activeBackground": "#ff6433",
         "activityBar.background": "#ff6433",
@@ -21,5 +25,5 @@
         "titleBar.inactiveBackground": "#ff3d0099",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.color": "#ff3d00",
+    "rlox.languageServerPath": "/home/dj/Code/rlox/tools/rlox-lsp/target/debug/rlox-lsp"
 }

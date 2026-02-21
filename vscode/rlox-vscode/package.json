@@ -1,0 +1,68 @@
+{
+  "name": "rlox-vscode",
+  "displayName": "rlox",
+  "description": "VS Code support for the rlox language",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:rlox",
+    "onCommand:rlox.restartLanguageServer"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "rlox",
+        "aliases": ["rlox", "Lox"],
+        "extensions": [".rlox"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rlox",
+        "scopeName": "source.rlox",
+        "path": "./syntaxes/rlox.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "rlox",
+      "properties": {
+        "rlox.languageServerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the rlox-lsp binary. If empty, uses tools/rlox-lsp/target/debug/rlox-lsp relative to repo root."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "rlox.restartLanguageServer",
+        "title": "Rlox: Restart Language Server"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "2.24.0",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  },
+  "overrides": {
+    "cheerio": "1.0.0-rc.12"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

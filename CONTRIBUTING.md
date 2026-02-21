@@ -47,6 +47,12 @@ cargo run --quiet -- file data/examples/04_closures.rlox
 cargo run --quiet -- file data/examples/05_classes_properties.rlox
 ```
 
+If your changes affect VS Code/LSP integration, also validate:
+
+```bash
+cargo build --manifest-path tools/rlox-lsp/Cargo.toml
+```
+
 ## Documentation Update Rules
 
 When code changes behavior, update all relevant docs in the same PR:

@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Rlox VS Code Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vscode/rlox-vscode"
+      ],
+      "outFiles": ["${workspaceFolder}/vscode/rlox-vscode/dist/**/*.js"],
+      "preLaunchTask": "rlox-vscode: compile"
+    }
+  ]
+}

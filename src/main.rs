@@ -1,19 +1,12 @@
-mod chunk;
-mod compiler;
-mod debug;
-mod scanner;
-mod value;
-mod vm;
-
-use compiler::{Compiler, FunctionType};
-use debug::print_debug::disassemble_chunk;
-use debug::write_debug::write_chunk_to_file;
-use scanner::Scanner;
+use rlox::compiler::{Compiler, FunctionType};
+use rlox::debug::print_debug::disassemble_chunk;
+use rlox::debug::write_debug::write_chunk_to_file;
+use rlox::scanner::Scanner;
+use rlox::value::Value;
+use rlox::vm::VM;
 use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write};
-use value::Value;
-use vm::VM;
 
 fn repl() {
     loop {
