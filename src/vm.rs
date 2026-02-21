@@ -89,7 +89,7 @@ pub struct VM<T: ValueStack> {
     pub frames: [CallFrame; MAX_FRAMES],
     frame_count: usize,
 
-    open_upvalue_head: Option<Box<Upvalue>>,
+    open_upvalues: Vec<Rc<RefCell<Upvalue>>>,
 }
 
 impl<T: ValueStack> VM<T> {
@@ -107,7 +107,7 @@ impl<T: ValueStack> VM<T> {
             }),
             frame_count: 0,
 
-            open_upvalue_head: None,
+            open_upvalues: Vec::new(),
         };
 
         vm.globals.insert(
@@ -143,7 +143,7 @@ impl<T: ValueStack> VM<T> {
             }),
             frame_count: 0,
 
-            open_upvalue_head: None,
+            open_upvalues: Vec::new(),
         }
     }
 
@@ -357,69 +357,47 @@ impl<T: ValueStack> VM<T> {
         }
     }
 
-    fn capture_upvalue(&mut self, index: usize) -> Upvalue {
-        let mut previous_upvalue: Option<Box<Upvalue>> = None;
-        let mut upvalue = self.open_upvalue_head.clone();
+    fn capture_upvalue(&mut self, index: usize) -> Rc<RefCell<Upvalue>> {
+        let location = self.frames[self.frame_count - 1].slot + index;
 
-        while upvalue.clone().is_some()
-            && upvalue.clone().unwrap().location > self.frames[self.frame_count - 1].slot + index
-        {
-            previous_upvalue = upvalue.clone();
-            upvalue = upvalue.unwrap().next;
+        for upvalue in &self.open_upvalues {
+            let upvalue_ref = upvalue.borrow();
+            if upvalue_ref.location == location && upvalue_ref.closed.is_none() {
+                return Rc::clone(upvalue);
+            }
         }
 
-        // if the upvalue is the one we're looking for
-        if upvalue.is_some()
-            && upvalue.clone().unwrap().location == self.frames[self.frame_count - 1].slot + index
-        {
-            return *(upvalue.clone()).unwrap();
-        }
-
-        let mut new_upvalue = Upvalue {
-            location: self.frames[self.frame_count - 1].slot + index,
-            index,
-            next: None,
+        let new_upvalue = Rc::new(RefCell::new(Upvalue {
+            location,
             closed: None,
-        };
-        new_upvalue.next = upvalue;
-
-        if previous_upvalue.is_none() {
-            self.open_upvalue_head = Some(Box::new(new_upvalue.clone()));
-        } else {
-            previous_upvalue.unwrap().next = Some(Box::new(new_upvalue.clone()));
-        }
+        }));
+        self.open_upvalues.push(Rc::clone(&new_upvalue));
 
         return new_upvalue;
     }
 
-    fn close_upvalues(&mut self, closure: &mut Closure) {
-        let slot = self.frames[self.frame_count - 1].slot;
+    fn close_upvalues(&mut self, last: usize) {
+        let mut open_upvalues = Vec::new();
 
-        for idx in 0..closure.upvalues.len() {
-            match closure.upvalues[idx].closed {
-                None => {
-                    if closure.upvalues[idx].location > slot {
-                        closure.upvalues[idx].closed = Some(Box::new(
-                            self.value_stack
-                                .get_value_at_idx(closure.upvalues[idx].location)
-                                .clone(),
-                        ));
-                    }
-                }
-                _ => {}
+        for upvalue in self.open_upvalues.drain(..) {
+            let location = upvalue.borrow().location;
+            if location < last {
+                open_upvalues.push(upvalue);
+                continue;
             }
+
+            let closed_value = self.value_stack.get_value_at_idx(location);
+            upvalue.borrow_mut().closed = Some(Box::new(closed_value));
         }
+
+        self.open_upvalues = open_upvalues;
     }
 
     #[allow(dead_code)]
     fn debug_open_upvalue_list(&mut self) {
-        let mut head = self.open_upvalue_head.clone();
-
         println!("======== START UPVALUE LIST ========\n");
-
-        while head.is_some() {
-            println!("UPVALUE LIST VALUE {:?}\n", head);
-            head = head.unwrap().next;
+        for upvalue in &self.open_upvalues {
+            println!("UPVALUE LIST VALUE {:?}\n", upvalue);
         }
 
         println!("\n======== END UPVALUE LIST ========");
@@ -502,15 +480,9 @@ impl<T: ValueStack> VM<T> {
 
             match instruction {
                 OpCode::Return => {
-                    let mut result = self.value_stack.pop().unwrap();
+                    let result = self.value_stack.pop().unwrap();
                     let slot = frame!().slot;
-
-                    match result {
-                        Value::Closure(ref mut closure) => {
-                            self.close_upvalues(closure);
-                        }
-                        _ => {}
-                    }
+                    self.close_upvalues(slot);
 
                     self.frame_count -= 1;
 
@@ -716,30 +688,6 @@ impl<T: ValueStack> VM<T> {
                     }
                 }
                 OpCode::Print => match self.value_stack.pop() {
-                    Some(Value::Upvalue(upvalue)) => match upvalue.closed {
-                        None => {
-                            /*
-                             * The issue is that in the C version of the code, the value of
-                             * an upvalue is accessed directly by just dereferencing the location
-                             * property, which points directly to the place in memory where
-                             * the value itself lives.
-                             *
-                             * In the Rust paradigm here, that's all fucked because the location
-                             * is meant to point to an index in the value stack. When a value gets
-                             * closed, the value stack by definition no longer has the value in it.
-                             *
-                             * So, any pointer to an index in the value stack means nothing. How in
-                             * the world could I fix this?
-                             */
-                            VM::<T>::print_value(
-                                self.value_stack.get_value_at_idx(upvalue.location),
-                            );
-                        }
-                        Some(closed) => {
-                            println!("here?");
-                            VM::<T>::print_value(*closed);
-                        }
-                    },
                     Some(v) => VM::<T>::print_value(v),
                     _ => return InterpretResult::RuntimeError,
                 },
@@ -898,39 +846,33 @@ impl<T: ValueStack> VM<T> {
                     let slot = read_byte!();
 
                     let upvalue = frame!().closure.upvalues[slot as usize].clone();
+                    let upvalue_ref = upvalue.borrow();
 
-                    match upvalue.closed {
-                        Some(v) => {
-                            self.value_stack.push(*v);
-                        }
-                        None => {
-                            self.value_stack.push(Value::Upvalue(upvalue));
-                        }
+                    match &upvalue_ref.closed {
+                        Some(v) => self.value_stack.push((**v).clone()),
+                        None => self
+                            .value_stack
+                            .push(self.value_stack.get_value_at_idx(upvalue_ref.location)),
                     }
                 }
                 OpCode::SetUpvalue => {
                     let slot = read_byte!();
                     let value_on_top_of_stack = self.value_stack.peek(0).clone();
-                    let closed_value = &frame!().closure.upvalues[slot as usize].closed;
 
-                    // If the upvalue that we're setting has been closed, we should set the closed value
-                    // Else, we should set the value in the value stack that it points at
-                    match closed_value {
-                        Some(_) => {
-                            frame!().closure.upvalues[slot as usize].closed =
-                                Some(Box::new(value_on_top_of_stack));
-                        }
-                        None => {
-                            let location = frame!().closure.upvalues[slot as usize].location;
-                            self.value_stack
-                                .set_value_at_idx(location, value_on_top_of_stack);
-                        }
+                    let upvalue = frame!().closure.upvalues[slot as usize].clone();
+                    let upvalue_location = upvalue.borrow().location;
+                    let is_closed = upvalue.borrow().closed.is_some();
+
+                    if is_closed {
+                        upvalue.borrow_mut().closed = Some(Box::new(value_on_top_of_stack));
+                    } else {
+                        self.value_stack
+                            .set_value_at_idx(upvalue_location, value_on_top_of_stack);
                     }
                 }
                 OpCode::CloseUpvalue => {
-                    todo!("what do i do here");
-                    // self.close_upvalues(self.value_stack.size() - 1);
-                    // self.value_stack.pop();
+                    self.close_upvalues(self.value_stack.size() - 1);
+                    self.value_stack.pop();
                 }
                 OpCode::Class => {
                     let value = read_constant!();
