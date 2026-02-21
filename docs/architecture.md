@@ -34,6 +34,10 @@ Crafting Interpreters, adapted to Rust.
 - `src/debug.rs`
   - Human-readable bytecode disassembly.
   - Debug file output used by `debug` CLI mode.
+- `tools/rlox-lsp/`
+  - Rust LSP server implementation for editor diagnostics/symbols.
+- `vscode/rlox-vscode/`
+  - Local VS Code extension (language registration, grammar, LSP client).
 
 ## Runtime Model
 

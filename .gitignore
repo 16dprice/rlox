@@ -1,1 +1,3 @@
 /target
+/vscode/rlox-vscode/node_modules
+/vscode/rlox-vscode/dist

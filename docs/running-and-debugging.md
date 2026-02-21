@@ -58,3 +58,9 @@ cargo run --quiet -- file data/examples/03_functions.rlox
 cargo run --quiet -- file data/examples/04_closures.rlox
 cargo run --quiet -- file data/examples/05_classes_properties.rlox
 ```
+
+## Editor Integration
+
+For local VS Code setup (syntax highlighting + language server), see:
+
+- [`docs/vscode-language-support.md`](vscode-language-support.md)
