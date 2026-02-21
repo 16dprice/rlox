@@ -1099,82 +1099,165 @@ mod tests {
         return vm.value_stack.all_values.pop();
     }
 
-    #[test]
-    fn basic_arithmetic() {
-        let last_value = get_second_to_last_value_on_value_stack(
-            String::from("1 + 2;"),
+    fn interpret_and_get_second_to_last_value(source: &str) -> Option<Value> {
+        get_second_to_last_value_on_value_stack(
+            String::from(source),
             TestValueStack::new(&mut Vec::new()),
-        );
+        )
+    }
 
-        match last_value {
+    fn assert_number_value(actual: Option<Value>, expected: f64) {
+        match actual {
             Some(Value::Number(n)) => {
-                if n != 3.0 {
-                    panic!("Expected 3.0, got {}", n);
+                if n != expected {
+                    panic!("Expected {}, got {}", expected, n);
                 }
             }
-            _ => panic!("Expected 3.0, got {:?}", last_value),
+            _ => panic!("Expected {}, got {:?}", expected, actual),
         }
+    }
+
+    fn assert_boolean_value(actual: Option<Value>, expected: bool) {
+        match actual {
+            Some(Value::Boolean(b)) => {
+                if b != expected {
+                    panic!("Expected {}, got {}", expected, b);
+                }
+            }
+            _ => panic!("Expected {}, got {:?}", expected, actual),
+        }
+    }
+
+    fn assert_string_value(actual: Option<Value>, expected: &str) {
+        match actual {
+            Some(Value::String(s)) => {
+                if !s.eq(expected) {
+                    panic!("Expected '{}', got {:?}", expected, s);
+                }
+            }
+            _ => panic!("Expected '{}', got {:?}", expected, actual),
+        }
+    }
+
+    #[test]
+    fn basic_arithmetic() {
+        assert_number_value(interpret_and_get_second_to_last_value("1 + 2;"), 3.0);
     }
 
     #[test]
     fn simple_greater_than() {
         // Expect false
-        let last_value = get_second_to_last_value_on_value_stack(
-            String::from("2 > 3;"),
-            TestValueStack::new(&mut Vec::new()),
-        );
-        match last_value {
-            Some(Value::Boolean(false)) => {}
-            _ => panic!("Expected false, got {:?}", last_value),
-        }
+        assert_boolean_value(interpret_and_get_second_to_last_value("2 > 3;"), false);
 
         // Expect true
-        let last_value = get_second_to_last_value_on_value_stack(
-            String::from("3 > 2;"),
-            TestValueStack::new(&mut Vec::new()),
-        );
-        match last_value {
-            Some(Value::Boolean(true)) => {}
-            _ => panic!("Expected true, got {:?}", last_value),
-        }
+        assert_boolean_value(interpret_and_get_second_to_last_value("3 > 2;"), true);
     }
 
     #[test]
     fn simple_less_than() {
         // Expect false
-        let last_value = get_second_to_last_value_on_value_stack(
-            String::from("3 < 2;"),
-            TestValueStack::new(&mut Vec::new()),
-        );
-        match last_value {
-            Some(Value::Boolean(false)) => {}
-            _ => panic!("Expected false, got {:?}", last_value),
-        }
+        assert_boolean_value(interpret_and_get_second_to_last_value("3 < 2;"), false);
 
         // Expect true
-        let last_value = get_second_to_last_value_on_value_stack(
-            String::from("2 < 3;"),
-            TestValueStack::new(&mut Vec::new()),
-        );
-        match last_value {
-            Some(Value::Boolean(true)) => {}
-            _ => panic!("Expected true, got {:?}", last_value),
-        }
+        assert_boolean_value(interpret_and_get_second_to_last_value("2 < 3;"), true);
     }
 
     #[test]
     fn string_concatenation() {
-        let last_value = get_second_to_last_value_on_value_stack(
-            String::from("\"one \" + \"two \" + \"three\";"),
-            TestValueStack::new(&mut Vec::new()),
+        assert_string_value(
+            interpret_and_get_second_to_last_value("\"one \" + \"two \" + \"three\";"),
+            "one two three",
         );
-        match last_value {
-            Some(Value::String(s)) => {
-                if !s.eq("one two three") {
-                    panic!("Expected 'one two three', got {:?}", s);
-                }
+    }
+
+    #[test]
+    fn function_call_with_arguments() {
+        let source = "
+            fun add(a, b) {
+                return a + b;
             }
-            _ => panic!("Expected 'one two three', got {:?}", last_value),
-        }
+
+            add(4, 5);
+        ";
+
+        assert_number_value(interpret_and_get_second_to_last_value(source), 9.0);
+    }
+
+    #[test]
+    fn while_loop_updates_variable() {
+        let source = "
+            var i = 0;
+
+            while (i < 3) {
+                i = i + 1;
+            }
+
+            i;
+        ";
+
+        assert_number_value(interpret_and_get_second_to_last_value(source), 3.0);
+    }
+
+    #[test]
+    fn class_instance_property_set_and_get() {
+        let source = "
+            class Pair {}
+
+            var pair = Pair();
+            pair.first = 1;
+            pair.second = 2;
+
+            pair.first + pair.second;
+        ";
+
+        assert_number_value(interpret_and_get_second_to_last_value(source), 3.0);
+    }
+
+    #[test]
+    fn closure_state_persists_across_calls() {
+        let source = "
+            fun makeCounter() {
+                var count = 41;
+
+                fun next() {
+                    count = count + 1;
+                    return count;
+                }
+
+                return next;
+            }
+
+            var counter = makeCounter();
+            counter();
+            counter();
+            counter();
+        ";
+
+        assert_number_value(interpret_and_get_second_to_last_value(source), 44.0);
+    }
+
+    #[test]
+    fn closure_instances_keep_separate_state() {
+        let source = "
+            fun makeCounter() {
+                var count = 0;
+
+                fun next() {
+                    count = count + 1;
+                    return count;
+                }
+
+                return next;
+            }
+
+            var a = makeCounter();
+            var b = makeCounter();
+
+            a();
+            b();
+            a();
+        ";
+
+        assert_number_value(interpret_and_get_second_to_last_value(source), 2.0);
     }
 }
