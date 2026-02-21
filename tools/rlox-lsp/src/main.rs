@@ -5,10 +5,10 @@ use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    DocumentSymbol, DocumentSymbolParams, DocumentSymbolResponse, InitializeParams,
-    InitializeResult, MessageType, OneOf, Position, Range, ServerCapabilities, SymbolKind,
-    TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
-    WorkDoneProgressOptions,
+    DocumentSymbol, DocumentSymbolOptions, DocumentSymbolParams, DocumentSymbolResponse,
+    InitializeParams, InitializeResult, MessageType, OneOf, Position, Range, ServerCapabilities,
+    SymbolKind, TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind,
+    Url,
 };
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -115,8 +115,9 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
-                document_symbol_provider: Some(OneOf::Right(WorkDoneProgressOptions {
-                    work_done_progress: Some(false),
+                document_symbol_provider: Some(OneOf::Right(DocumentSymbolOptions {
+                    work_done_progress_options: Default::default(),
+                    label: Some("rlox".to_string()),
                 })),
                 ..ServerCapabilities::default()
             },
@@ -141,7 +142,8 @@ impl LanguageServer for Backend {
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let text = extract_full_text(params.content_changes);
-        self.analyze_and_store(params.text_document.uri, &text).await;
+        self.analyze_and_store(params.text_document.uri, &text)
+            .await;
     }
 
     async fn document_symbol(
@@ -158,17 +160,15 @@ impl LanguageServer for Backend {
         let symbols = doc
             .symbols
             .iter()
-            .map(|symbol| {
-                DocumentSymbol {
-                    name: symbol.name.clone(),
-                    detail: None,
-                    kind: symbol.kind,
-                    tags: None,
-                    deprecated: None,
-                    range: symbol.range,
-                    selection_range: symbol.range,
-                    children: None,
-                }
+            .map(|symbol| DocumentSymbol {
+                name: symbol.name.clone(),
+                detail: None,
+                kind: symbol.kind,
+                tags: None,
+                deprecated: None,
+                range: symbol.range,
+                selection_range: symbol.range,
+                children: None,
             })
             .collect::<Vec<_>>();
 
