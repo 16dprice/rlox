@@ -117,13 +117,6 @@ impl<T: ValueStack> VM<T> {
                 arity: 0,
             }),
         );
-        vm.globals.insert(
-            String::from("limit"),
-            Value::NativeFunction(NativeFunction {
-                name: String::from("limit"),
-                arity: 1,
-            }),
-        );
 
         return vm;
     }
@@ -190,7 +183,6 @@ impl<T: ValueStack> VM<T> {
                     println!("<closure>");
                 }
             },
-            Value::Upvalue(upvalue) => println!("{:?}", upvalue),
             Value::Class(c) => println!("{}", c.name),
             Value::Instance(i) => println!("{} instance", i.borrow().class.name),
         }
@@ -254,7 +246,6 @@ impl<T: ValueStack> VM<T> {
         return true;
     }
 
-    #[allow(unreachable_code)]
     fn call_native(&mut self, func: NativeFunction, arg_count: u8) -> bool {
         if arg_count != func.arity {
             self.runtime_error(
@@ -280,49 +271,6 @@ impl<T: ValueStack> VM<T> {
                     .push(Value::Number(since_the_epoch.as_millis() as f64));
 
                 return true;
-            }
-            "limit" => {
-                todo!("Clean this up to do more interesting things");
-                let maybe_number = self.value_stack.pop();
-                self.value_stack.pop(); // pop off the function itself
-
-                match maybe_number {
-                    Some(Value::Closure(f)) => {
-                        self.value_stack.push(Value::String(format!("{:?}", f)));
-                        return true;
-                    }
-                    Some(Value::Number(number)) => {
-                        let f = |x: f64| -> f64 {
-                            if x < 0.0 {
-                                return -1.0;
-                            } else {
-                                return 1.0;
-                            }
-                        };
-
-                        let delta = 1.0 / 2.0_f64.powf(32.0);
-
-                        let limit_from_left = f(number - delta);
-                        let limit_from_right = f(number + delta);
-
-                        let tol = 10.0_f64.powi(-6);
-
-                        if (limit_from_left - limit_from_right).abs() < tol {
-                            self.value_stack
-                                .push(Value::Number((limit_from_left + limit_from_right) / 2.0));
-                        } else {
-                            self.value_stack.push(Value::Nil);
-                        }
-
-                        return true;
-                    }
-                    _ => {
-                        self.runtime_error(
-                            format!("Can't call <limit> with input {:?}", maybe_number).as_str(),
-                        );
-                        return false;
-                    }
-                }
             }
             s => {
                 self.runtime_error(format!("No native function named '{}'", s).as_str());

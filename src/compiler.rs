@@ -1238,9 +1238,6 @@ impl Compiler {
 
         let func = compiler.end_compiler().to_owned();
 
-        // disassemble_chunk(&func.chunk, format!("{:?}", &func.name).as_str());
-        // println!("{:?}", func);
-
         let func_index = self.current_chunk().write_function(func);
         self.emit_bytes(OpCode::Closure as u8, func_index as u8);
 

@@ -1,7 +1,6 @@
 mod chunk;
 mod compiler;
 mod debug;
-mod math;
 mod scanner;
 mod value;
 mod vm;
@@ -16,9 +15,6 @@ use std::io::{self, Read, Write};
 use value::Value;
 use vm::VM;
 
-use mini_json;
-
-#[allow(dead_code)]
 fn repl() {
     loop {
         print!("> ");
@@ -58,8 +54,6 @@ fn run_file(file_path: &str) {
     println!("==== BEGIN PROGRAM OUTPUT ====\n\n");
     vm.interpret(source);
     println!("\n\n==== END PROGRAM OUTPUT ====\n\n");
-
-    // disassemble_chunk(&vm.frames[0].closure.function.chunk, "TOP LEVEL CHUNK");
 }
 
 fn debug_to_file(file_path: &str) {
@@ -84,11 +78,9 @@ fn debug_to_file(file_path: &str) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    // assert!(args.len() >= 2);
+    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("file");
 
-    // let mode = &args[1];
-    let mode = String::from("file");
-    match mode.as_str() {
+    match mode {
         "repl" => {
             repl();
         }

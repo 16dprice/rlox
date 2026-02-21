@@ -26,10 +26,38 @@ fn get_value_debug_string(value: &Value) -> String {
                 format!("<script>")
             }
         },
-        Value::Upvalue(up) => format!("<upvalue {:?}>", up),
         Value::Class(c) => format!("{}", c.name),
         Value::Instance(i) => format!("{}", i.borrow().class.name),
     }
+}
+
+fn next_offset(offset: usize, advance: usize) -> usize {
+    let next = offset.saturating_add(advance);
+    if next > offset {
+        next
+    } else {
+        offset + 1
+    }
+}
+
+fn constant_operand_string(chunk: &Chunk, operand: Option<u8>) -> String {
+    match operand {
+        Some(index) => match chunk.constants.get(index as usize) {
+            Some(constant) => get_value_debug_string(constant),
+            None => format!("<invalid constant {}>", index),
+        },
+        None => "<missing operand>".to_string(),
+    }
+}
+
+fn read_jump_operand(chunk: &Chunk, offset: usize) -> Option<u16> {
+    let high = *chunk.code.get(offset + 1)? as u16;
+    let low = *chunk.code.get(offset + 2)? as u16;
+    Some((high << 8) | low)
+}
+
+fn read_line(chunk: &Chunk, offset: usize) -> usize {
+    chunk.lines.get(offset).copied().unwrap_or(0)
 }
 
 pub mod print_debug {
@@ -37,192 +65,270 @@ pub mod print_debug {
 
     fn simple_instruction(name: &str, offset: usize) -> usize {
         println!("{}", name);
-        return offset + 1;
+        next_offset(offset, 1)
     }
 
     fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
-        print!("CHUNK OFFSET - {:0>4} | ", offset);
-        if offset > 0 && chunk.lines[offset] == chunk.lines[offset - 1] {
-            print!("LINE -    | ");
-        } else {
-            print!("LINE - {:0>4} ", chunk.lines[offset]);
+        if offset >= chunk.code.len() {
+            return next_offset(offset, 1);
         }
 
-        let instruction = OpCode::from_u8(chunk.code[offset]).unwrap();
+        print!("CHUNK OFFSET - {:0>4} | ", offset);
+
+        let line = read_line(chunk, offset);
+        let previous_line = if offset > 0 {
+            Some(read_line(chunk, offset - 1))
+        } else {
+            None
+        };
+
+        if previous_line == Some(line) {
+            print!("LINE -    | ");
+        } else {
+            print!("LINE - {:0>4} ", line);
+        }
+
+        let op_byte = chunk.code[offset];
+        let Some(instruction) = OpCode::from_u8(op_byte) else {
+            println!("OP_UNKNOWN {}", op_byte);
+            return next_offset(offset, 1);
+        };
 
         match instruction {
             OpCode::Return => {
                 println!("OP_RETURN");
-                return offset + 1;
+                next_offset(offset, 1)
             }
             OpCode::Constant => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-                println!("{}: {}", OpCode::Constant, get_value_debug_string(constant));
+                let operand = chunk.code.get(offset + 1).copied();
+                println!(
+                    "{}: {}",
+                    OpCode::Constant,
+                    constant_operand_string(chunk, operand)
+                );
 
-                return offset + 2;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
-            OpCode::Add => {
-                return simple_instruction("OP_ADD", offset);
-            }
-            OpCode::Subtract => {
-                return simple_instruction("OP_SUBTRACT", offset);
-            }
-            OpCode::Multiply => {
-                return simple_instruction("OP_MULTIPLY", offset);
-            }
-            OpCode::Divide => {
-                return simple_instruction("OP_DIVIDE", offset);
-            }
-            OpCode::True => {
-                return simple_instruction("OP_TRUE", offset);
-            }
-            OpCode::False => {
-                return simple_instruction("OP_FALSE", offset);
-            }
-            OpCode::Nil => {
-                return simple_instruction("OP_NIL", offset);
-            }
-            OpCode::Equal => {
-                return simple_instruction("OP_EQUAL", offset);
-            }
-            OpCode::Greater => {
-                return simple_instruction("OP_GREATER", offset);
-            }
-            OpCode::Less => {
-                return simple_instruction("OP_LESS", offset);
-            }
-            OpCode::Negate => {
-                return simple_instruction("OP_NEGATE", offset);
-            }
-            OpCode::Not => {
-                return simple_instruction("OP_NOT", offset);
-            }
-            OpCode::Pop => {
-                return simple_instruction("OP_POP", offset);
-            }
-            OpCode::Print => {
-                return simple_instruction("OP_PRINT", offset);
-            }
+            OpCode::Add => simple_instruction("OP_ADD", offset),
+            OpCode::Subtract => simple_instruction("OP_SUBTRACT", offset),
+            OpCode::Multiply => simple_instruction("OP_MULTIPLY", offset),
+            OpCode::Divide => simple_instruction("OP_DIVIDE", offset),
+            OpCode::True => simple_instruction("OP_TRUE", offset),
+            OpCode::False => simple_instruction("OP_FALSE", offset),
+            OpCode::Nil => simple_instruction("OP_NIL", offset),
+            OpCode::Equal => simple_instruction("OP_EQUAL", offset),
+            OpCode::Greater => simple_instruction("OP_GREATER", offset),
+            OpCode::Less => simple_instruction("OP_LESS", offset),
+            OpCode::Negate => simple_instruction("OP_NEGATE", offset),
+            OpCode::Not => simple_instruction("OP_NOT", offset),
+            OpCode::Pop => simple_instruction("OP_POP", offset),
+            OpCode::Print => simple_instruction("OP_PRINT", offset),
             OpCode::DefineGlobal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                let operand = chunk.code.get(offset + 1).copied();
                 println!(
                     "{}: {}",
                     OpCode::DefineGlobal,
-                    get_value_debug_string(constant)
+                    constant_operand_string(chunk, operand)
                 );
 
-                return offset + 2;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::GetGlobal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                let operand = chunk.code.get(offset + 1).copied();
                 println!(
                     "{}: {}",
                     OpCode::GetGlobal,
-                    get_value_debug_string(constant)
+                    constant_operand_string(chunk, operand)
                 );
 
-                return offset + 2;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::SetGlobal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
+                let operand = chunk.code.get(offset + 1).copied();
                 println!(
                     "{}: {}",
                     OpCode::SetGlobal,
-                    get_value_debug_string(constant)
+                    constant_operand_string(chunk, operand)
                 );
 
-                return offset + 2;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::GetLocal => {
-                let slot = chunk.code[offset + 1];
-                println!("{}: {}", OpCode::GetLocal, slot);
-                return offset + 2;
-            }
-            OpCode::SetLocal => {
-                let slot = chunk.code[offset + 1];
-                println!("{}: {}", OpCode::SetLocal, slot);
-                return offset + 2;
-            }
-            OpCode::JumpIfFalse => {
-                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
-                println!(
-                    "{} {} -> {}",
-                    OpCode::JumpIfFalse,
-                    offset,
-                    offset + 3 + jump as usize
-                );
-
-                return offset + 3;
-            }
-            OpCode::Jump => {
-                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
-                println!(
-                    "{} {} -> {}",
-                    OpCode::Jump,
-                    offset,
-                    offset + 3 + jump as usize
-                );
-                return offset + 3;
-            }
-            OpCode::Loop => {
-                println!("op code loop");
-                return offset + 3;
-            }
-            OpCode::Call => {
-                let slot = chunk.code[offset + 1];
-                println!("OP_CALL {}", slot);
-                return offset + 2;
-            }
-            OpCode::Closure => {
-                let slot = chunk.code[offset + 1];
-                let value = &chunk.constants[slot as usize];
-                let mut offset_inc_value = 2;
-
-                match value {
-                    Value::Function(function) => {
-                        println!("OP_CLOSURE {:?}", function.name);
-
-                        for idx in 0..(function.upvalue_count as usize) {
-                            // at idx = 0, the index for the array access here is offset + 1 + 0 + 1
-                            // = offset + 2
-                            // which is what we want because offset + 1 is the index of the function value itself
-                            // and so the following chunk code location is the location of the is_local byte
-                            // and then the following code location after that is the index byte
-                            let is_local = chunk.code[(offset + 1) + (2 * idx + 1)];
-                            let index = chunk.code[(offset + 1) + (2 * idx + 2)];
-
-                            println!("is local: {}\nindex: {}", is_local, index);
-                        }
-                        offset_inc_value += 2 * function.upvalue_count;
-                    }
-                    v => panic!("Expect function at slot {} but received {:?}", slot, v),
+                let operand = chunk.code.get(offset + 1).copied();
+                match operand {
+                    Some(slot) => println!("{}: {}", OpCode::GetLocal, slot),
+                    None => println!("{}: <missing operand>", OpCode::GetLocal),
                 }
 
-                return offset + offset_inc_value as usize;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
+            }
+            OpCode::SetLocal => {
+                let operand = chunk.code.get(offset + 1).copied();
+                match operand {
+                    Some(slot) => println!("{}: {}", OpCode::SetLocal, slot),
+                    None => println!("{}: <missing operand>", OpCode::SetLocal),
+                }
+
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
+            }
+            OpCode::JumpIfFalse => {
+                match read_jump_operand(chunk, offset) {
+                    Some(jump) => {
+                        let target = offset.saturating_add(3).saturating_add(jump as usize);
+                        println!("{} {} -> {}", OpCode::JumpIfFalse, offset, target);
+                    }
+                    None => println!("{}: <missing jump operand>", OpCode::JumpIfFalse),
+                }
+
+                next_offset(
+                    offset,
+                    if read_jump_operand(chunk, offset).is_some() {
+                        3
+                    } else {
+                        1
+                    },
+                )
+            }
+            OpCode::Jump => {
+                match read_jump_operand(chunk, offset) {
+                    Some(jump) => {
+                        let target = offset.saturating_add(3).saturating_add(jump as usize);
+                        println!("{} {} -> {}", OpCode::Jump, offset, target);
+                    }
+                    None => println!("{}: <missing jump operand>", OpCode::Jump),
+                }
+
+                next_offset(
+                    offset,
+                    if read_jump_operand(chunk, offset).is_some() {
+                        3
+                    } else {
+                        1
+                    },
+                )
+            }
+            OpCode::Loop => {
+                match read_jump_operand(chunk, offset) {
+                    Some(jump) => {
+                        let target = offset.saturating_add(3).saturating_sub(jump as usize);
+                        println!("{} {} -> {}", OpCode::Loop, offset, target);
+                    }
+                    None => println!("{}: <missing jump operand>", OpCode::Loop),
+                }
+
+                next_offset(
+                    offset,
+                    if read_jump_operand(chunk, offset).is_some() {
+                        3
+                    } else {
+                        1
+                    },
+                )
+            }
+            OpCode::Call => {
+                let operand = chunk.code.get(offset + 1).copied();
+                match operand {
+                    Some(arg_count) => println!("OP_CALL {}", arg_count),
+                    None => println!("OP_CALL <missing arg count>"),
+                }
+
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
+            }
+            OpCode::Closure => {
+                let operand = chunk.code.get(offset + 1).copied();
+                let Some(slot) = operand else {
+                    println!("OP_CLOSURE <missing function operand>");
+                    return next_offset(offset, 1);
+                };
+
+                let value = chunk.constants.get(slot as usize);
+                let mut advance = 2;
+
+                match value {
+                    Some(Value::Function(function)) => {
+                        println!("OP_CLOSURE {:?}", function.name);
+
+                        let upvalue_count = function.upvalue_count as usize;
+                        for idx in 0..upvalue_count {
+                            let is_local = chunk.code.get(offset + 2 + idx * 2).copied();
+                            let index = chunk.code.get(offset + 3 + idx * 2).copied();
+
+                            println!(
+                                "upvalue {}: is_local={}, index={}",
+                                idx,
+                                is_local
+                                    .map(|v| v.to_string())
+                                    .unwrap_or("<missing>".to_string()),
+                                index
+                                    .map(|v| v.to_string())
+                                    .unwrap_or("<missing>".to_string())
+                            );
+                        }
+                        advance += upvalue_count * 2;
+                    }
+                    Some(other) => {
+                        println!(
+                            "OP_CLOSURE <non-function constant: {}>",
+                            get_value_debug_string(other)
+                        );
+                    }
+                    None => {
+                        println!("OP_CLOSURE <invalid constant {}>", slot);
+                    }
+                }
+
+                next_offset(offset, advance)
             }
             OpCode::GetUpvalue => {
-                let slot = chunk.code[offset + 1];
-                println!("{}: {}", OpCode::GetUpvalue, slot);
+                let operand = chunk.code.get(offset + 1).copied();
+                match operand {
+                    Some(slot) => println!("{}: {}", OpCode::GetUpvalue, slot),
+                    None => println!("{}: <missing operand>", OpCode::GetUpvalue),
+                }
 
-                return offset + 2;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::SetUpvalue => {
-                let slot = chunk.code[offset + 1];
-                println!("{}: {}", OpCode::SetUpvalue, slot);
+                let operand = chunk.code.get(offset + 1).copied();
+                match operand {
+                    Some(slot) => println!("{}: {}", OpCode::SetUpvalue, slot),
+                    None => println!("{}: <missing operand>", OpCode::SetUpvalue),
+                }
 
-                return offset + 2;
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::CloseUpvalue => {
-                return simple_instruction(format!("{}", OpCode::CloseUpvalue).as_str(), offset)
+                simple_instruction(format!("{}", OpCode::CloseUpvalue).as_str(), offset)
             }
             OpCode::Class => {
-                todo!("class in disassemble_instruction");
+                let operand = chunk.code.get(offset + 1).copied();
+                println!(
+                    "{}: {}",
+                    OpCode::Class,
+                    constant_operand_string(chunk, operand)
+                );
+
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::GetProperty => {
-                todo!("get property");
+                let operand = chunk.code.get(offset + 1).copied();
+                println!(
+                    "{}: {}",
+                    OpCode::GetProperty,
+                    constant_operand_string(chunk, operand)
+                );
+
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
             OpCode::SetProperty => {
-                todo!("set property");
+                let operand = chunk.code.get(offset + 1).copied();
+                println!(
+                    "{}: {}",
+                    OpCode::SetProperty,
+                    constant_operand_string(chunk, operand)
+                );
+
+                next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
         }
     }
@@ -232,7 +338,8 @@ pub mod print_debug {
 
         let mut offset = 0;
         while offset < chunk.code.len() {
-            offset = disassemble_instruction(chunk, offset);
+            let next = disassemble_instruction(chunk, offset);
+            offset = if next > offset { next } else { offset + 1 };
         }
 
         println!("\n\n==== END CHUNK DISASSEMBLY ====\n\n");
@@ -245,198 +352,295 @@ pub mod write_debug {
     use super::*;
 
     fn simple_instruction(name: &str, offset: usize) -> (String, usize) {
-        return (format!("{}\n", name), offset + 1);
+        (format!("{}\n", name), next_offset(offset, 1))
     }
 
     fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (String, usize) {
-        let instruction = OpCode::from_u8(chunk.code[offset]).unwrap();
+        if offset >= chunk.code.len() {
+            return ("OP_EOF\n".to_string(), next_offset(offset, 1));
+        }
+
+        let op_byte = chunk.code[offset];
+        let Some(instruction) = OpCode::from_u8(op_byte) else {
+            return (format!("OP_UNKNOWN {}\n", op_byte), next_offset(offset, 1));
+        };
 
         match instruction {
-            OpCode::Return => {
-                return simple_instruction("OP_RETURN", offset);
-            }
+            OpCode::Return => simple_instruction("OP_RETURN", offset),
             OpCode::Constant => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-
-                return (
+                let operand = chunk.code.get(offset + 1).copied();
+                (
                     format!(
                         "OP_CONSTANT\nCONSTANT: {}\n",
-                        get_value_debug_string(constant)
+                        constant_operand_string(chunk, operand)
                     ),
-                    offset + 2,
-                );
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
-            OpCode::Add => {
-                return simple_instruction("OP_ADD", offset);
-            }
-            OpCode::Subtract => {
-                return simple_instruction("OP_SUBTRACT", offset);
-            }
-            OpCode::Multiply => {
-                return simple_instruction("OP_MULTIPLY", offset);
-            }
-            OpCode::Divide => {
-                return simple_instruction("OP_DIVIDE", offset);
-            }
-            OpCode::True => {
-                return simple_instruction("OP_TRUE", offset);
-            }
-            OpCode::False => {
-                return simple_instruction("OP_FALSE", offset);
-            }
-            OpCode::Nil => {
-                return simple_instruction("OP_NIL", offset);
-            }
-            OpCode::Equal => {
-                return simple_instruction("OP_EQUAL", offset);
-            }
-            OpCode::Greater => {
-                return simple_instruction("OP_GREATER", offset);
-            }
-            OpCode::Less => {
-                return simple_instruction("OP_LESS", offset);
-            }
-            OpCode::Negate => {
-                return simple_instruction("OP_NEGATE", offset);
-            }
-            OpCode::Not => {
-                return simple_instruction("OP_NOT", offset);
-            }
-            OpCode::Pop => {
-                return simple_instruction("OP_POP", offset);
-            }
-            OpCode::Print => {
-                return simple_instruction("OP_PRINT", offset);
-            }
+            OpCode::Add => simple_instruction("OP_ADD", offset),
+            OpCode::Subtract => simple_instruction("OP_SUBTRACT", offset),
+            OpCode::Multiply => simple_instruction("OP_MULTIPLY", offset),
+            OpCode::Divide => simple_instruction("OP_DIVIDE", offset),
+            OpCode::True => simple_instruction("OP_TRUE", offset),
+            OpCode::False => simple_instruction("OP_FALSE", offset),
+            OpCode::Nil => simple_instruction("OP_NIL", offset),
+            OpCode::Equal => simple_instruction("OP_EQUAL", offset),
+            OpCode::Greater => simple_instruction("OP_GREATER", offset),
+            OpCode::Less => simple_instruction("OP_LESS", offset),
+            OpCode::Negate => simple_instruction("OP_NEGATE", offset),
+            OpCode::Not => simple_instruction("OP_NOT", offset),
+            OpCode::Pop => simple_instruction("OP_POP", offset),
+            OpCode::Print => simple_instruction("OP_PRINT", offset),
             OpCode::DefineGlobal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-
-                return (
+                let operand = chunk.code.get(offset + 1).copied();
+                (
                     format!(
-                        "OP_DEFINE_GLOBAL\nOP_CONSTANT\nCONSTANT: {}\n",
-                        get_value_debug_string(constant)
+                        "OP_DEFINE_GLOBAL\nCONSTANT: {}\n",
+                        constant_operand_string(chunk, operand)
                     ),
-                    offset + 2,
-                );
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::GetGlobal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-
-                return (
+                let operand = chunk.code.get(offset + 1).copied();
+                (
                     format!(
-                        "OP_GET_GLOBAL\nOP_CONSTANT\nCONSTANT: {}\n",
-                        get_value_debug_string(constant)
+                        "OP_GET_GLOBAL\nCONSTANT: {}\n",
+                        constant_operand_string(chunk, operand)
                     ),
-                    offset + 2,
-                );
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::SetGlobal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-
-                return (
+                let operand = chunk.code.get(offset + 1).copied();
+                (
                     format!(
-                        "OP_SET_GLOBAL\nOP_CONSTANT\nCONSTANT: {}\n",
-                        get_value_debug_string(constant)
+                        "OP_SET_GLOBAL\nCONSTANT: {}\n",
+                        constant_operand_string(chunk, operand)
                     ),
-                    offset + 2,
-                );
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::GetLocal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-
-                return (
+                let operand = chunk.code.get(offset + 1).copied();
+                (
                     format!(
-                        "OP_GET_LOCAL\nOP_CONSTANT\nCONSTANT: {}\n",
-                        get_value_debug_string(constant)
+                        "OP_GET_LOCAL\nSLOT: {}\n",
+                        operand
+                            .map(|v| v.to_string())
+                            .unwrap_or("<missing operand>".to_string())
                     ),
-                    offset + 2,
-                );
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::SetLocal => {
-                let constant = &chunk.constants[chunk.code[offset + 1] as usize];
-
-                return (
+                let operand = chunk.code.get(offset + 1).copied();
+                (
                     format!(
-                        "OP_SET_LOCAL\nOP_CONSTANT\nCONSTANT: {}\n",
-                        get_value_debug_string(constant)
+                        "OP_SET_LOCAL\nSLOT: {}\n",
+                        operand
+                            .map(|v| v.to_string())
+                            .unwrap_or("<missing operand>".to_string())
                     ),
-                    offset + 2,
-                );
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::JumpIfFalse => {
-                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
-                return (
-                    format!(
-                        "{} {} -> {}\n",
-                        OpCode::JumpIfFalse,
-                        offset,
-                        offset + 3 + jump as usize
-                    ),
-                    offset + 3,
-                );
+                let jump = read_jump_operand(chunk, offset);
+                (
+                    match jump {
+                        Some(jump) => {
+                            let target = offset.saturating_add(3).saturating_add(jump as usize);
+                            format!("{} {} -> {}\n", OpCode::JumpIfFalse, offset, target)
+                        }
+                        None => format!("{}: <missing jump operand>\n", OpCode::JumpIfFalse),
+                    },
+                    next_offset(offset, if jump.is_some() { 3 } else { 1 }),
+                )
             }
             OpCode::Jump => {
-                let jump = (chunk.code[offset + 1] as u16) << 8 | chunk.code[offset + 2] as u16;
-                return (
-                    format!(
-                        "{} {} -> {}\n",
-                        OpCode::Jump,
-                        offset,
-                        offset + 3 + jump as usize
-                    ),
-                    offset + 3,
-                );
+                let jump = read_jump_operand(chunk, offset);
+                (
+                    match jump {
+                        Some(jump) => {
+                            let target = offset.saturating_add(3).saturating_add(jump as usize);
+                            format!("{} {} -> {}\n", OpCode::Jump, offset, target)
+                        }
+                        None => format!("{}: <missing jump operand>\n", OpCode::Jump),
+                    },
+                    next_offset(offset, if jump.is_some() { 3 } else { 1 }),
+                )
             }
-            OpCode::Loop => return ("opcode loop".to_owned(), offset + 3),
+            OpCode::Loop => {
+                let jump = read_jump_operand(chunk, offset);
+                (
+                    match jump {
+                        Some(jump) => {
+                            let target = offset.saturating_add(3).saturating_sub(jump as usize);
+                            format!("{} {} -> {}\n", OpCode::Loop, offset, target)
+                        }
+                        None => format!("{}: <missing jump operand>\n", OpCode::Loop),
+                    },
+                    next_offset(offset, if jump.is_some() { 3 } else { 1 }),
+                )
+            }
             OpCode::Call => {
-                let slot = chunk.code[offset + 1];
-                return (format!("OP_CALL {}", slot), offset + 2);
+                let operand = chunk.code.get(offset + 1).copied();
+                (
+                    format!(
+                        "OP_CALL {}\n",
+                        operand
+                            .map(|v| v.to_string())
+                            .unwrap_or("<missing arg count>".to_string())
+                    ),
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::Closure => {
-                let slot = chunk.code[offset + 1];
-                return (format!("OP_CLOSURE {}", slot), offset + 2);
+                let operand = chunk.code.get(offset + 1).copied();
+                let Some(slot) = operand else {
+                    return (
+                        "OP_CLOSURE <missing function operand>\n".to_string(),
+                        next_offset(offset, 1),
+                    );
+                };
+
+                match chunk.constants.get(slot as usize) {
+                    Some(Value::Function(function)) => {
+                        let mut output = format!("OP_CLOSURE {:?}\n", function.name);
+                        let upvalue_count = function.upvalue_count as usize;
+
+                        for idx in 0..upvalue_count {
+                            let is_local = chunk.code.get(offset + 2 + idx * 2).copied();
+                            let index = chunk.code.get(offset + 3 + idx * 2).copied();
+
+                            output.push_str(
+                                format!(
+                                    "UPVALUE {} is_local={} index={}\n",
+                                    idx,
+                                    is_local
+                                        .map(|v| v.to_string())
+                                        .unwrap_or("<missing>".to_string()),
+                                    index
+                                        .map(|v| v.to_string())
+                                        .unwrap_or("<missing>".to_string())
+                                )
+                                .as_str(),
+                            );
+                        }
+
+                        (output, next_offset(offset, 2 + upvalue_count * 2))
+                    }
+                    Some(other) => (
+                        format!(
+                            "OP_CLOSURE <non-function constant: {}>\n",
+                            get_value_debug_string(other)
+                        ),
+                        next_offset(offset, 2),
+                    ),
+                    None => (
+                        format!("OP_CLOSURE <invalid constant {}>\n", slot),
+                        next_offset(offset, 2),
+                    ),
+                }
             }
             OpCode::GetUpvalue => {
-                todo!("get upvalue");
+                let operand = chunk.code.get(offset + 1).copied();
+                (
+                    format!(
+                        "OP_GET_UPVALUE {}\n",
+                        operand
+                            .map(|v| v.to_string())
+                            .unwrap_or("<missing operand>".to_string())
+                    ),
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::SetUpvalue => {
-                todo!("set upvalue");
+                let operand = chunk.code.get(offset + 1).copied();
+                (
+                    format!(
+                        "OP_SET_UPVALUE {}\n",
+                        operand
+                            .map(|v| v.to_string())
+                            .unwrap_or("<missing operand>".to_string())
+                    ),
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
-            OpCode::CloseUpvalue => {
-                todo!("close upvalue in debug");
-            }
+            OpCode::CloseUpvalue => simple_instruction("OP_CLOSE_UPVALUE", offset),
             OpCode::Class => {
-                todo!("class in debug to file");
+                let operand = chunk.code.get(offset + 1).copied();
+                (
+                    format!(
+                        "OP_CLASS\nCONSTANT: {}\n",
+                        constant_operand_string(chunk, operand)
+                    ),
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::GetProperty => {
-                todo!("get property");
+                let operand = chunk.code.get(offset + 1).copied();
+                (
+                    format!(
+                        "OP_GET_PROPERTY\nCONSTANT: {}\n",
+                        constant_operand_string(chunk, operand)
+                    ),
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
             OpCode::SetProperty => {
-                todo!("set property");
+                let operand = chunk.code.get(offset + 1).copied();
+                (
+                    format!(
+                        "OP_SET_PROPERTY\nCONSTANT: {}\n",
+                        constant_operand_string(chunk, operand)
+                    ),
+                    next_offset(offset, if operand.is_some() { 2 } else { 1 }),
+                )
             }
         }
     }
 
     pub fn write_chunk_to_file(source: String, chunk: &Chunk, output_path: &str) {
-        let mut file = File::create(output_path)
-            .expect(format!("Could not open file {}", output_path).as_str());
+        let mut file = match File::create(output_path) {
+            Ok(file) => file,
+            Err(e) => {
+                eprintln!("Could not open file {}: {}", output_path, e);
+                return;
+            }
+        };
 
         let mut offset = 0;
-        let mut debug_string: String;
         let mut current_line = 0;
         let source_lines: Vec<&str> = source.split('\n').collect();
 
         while offset < chunk.code.len() {
-            if chunk.lines[offset] != current_line {
-                current_line = chunk.lines[offset];
-                file.write_all(format!("\n\n{}\n\n", source_lines[current_line - 1]).as_bytes())
-                    .expect("Couldn't write to file");
+            let line = read_line(chunk, offset);
+            if line != 0 && line != current_line {
+                current_line = line;
+                let source_line = source_lines
+                    .get(current_line - 1)
+                    .copied()
+                    .unwrap_or("<source line unavailable>");
+
+                if file
+                    .write_all(format!("\n\n{}\n\n", source_line).as_bytes())
+                    .is_err()
+                {
+                    eprintln!("Couldn't write source line to {}", output_path);
+                    return;
+                }
             }
 
-            (debug_string, offset) = disassemble_instruction(chunk, offset);
+            let (debug_string, next) = disassemble_instruction(chunk, offset);
 
-            file.write_all(debug_string.as_bytes())
-                .expect("Couldn't write to file");
+            if file.write_all(debug_string.as_bytes()).is_err() {
+                eprintln!("Couldn't write disassembly to {}", output_path);
+                return;
+            }
+
+            offset = if next > offset { next } else { offset + 1 };
         }
     }
 }

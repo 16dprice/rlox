@@ -76,7 +76,6 @@ pub enum Value {
     Function(Function),
     NativeFunction(NativeFunction),
     Closure(Closure),
-    Upvalue(Upvalue),
     Class(Class),
     Instance(Rc<RefCell<Instance>>),
 }
@@ -119,9 +118,6 @@ impl fmt::Display for Value {
                     write!(f, "<closure>")
                 }
             },
-            Value::Upvalue(up) => {
-                write!(f, "<upvalue {}>", up.location)
-            }
             Value::Class(c) => {
                 write!(f, "{}", c.name)
             }
