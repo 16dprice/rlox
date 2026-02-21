@@ -1,0 +1,7 @@
+class Pair {}
+
+var pair = Pair();
+pair.left = 4;
+pair.right = 9;
+
+print pair.left + pair.right;
