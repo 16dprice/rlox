@@ -26,11 +26,6 @@ fn repl() {
 
         let mut vm = VM::<Vec<Value>>::new();
         vm.interpret(String::from(input));
-
-        disassemble_chunk(&vm.chunk, "Repl chunk");
-
-        let value_stack_top = vm.value_stack.pop();
-        println!("Top of VM Value Stack - {:?}", value_stack_top);
     }
 }
 
@@ -44,9 +39,7 @@ fn run_file(file_path: &str) {
 
     let mut vm = VM::<Vec<Value>>::new();
 
-    println!("==== BEGIN PROGRAM OUTPUT ====\n\n");
     vm.interpret(source);
-    println!("\n\n==== END PROGRAM OUTPUT ====\n\n");
 }
 
 fn debug_to_file(file_path: &str) {
