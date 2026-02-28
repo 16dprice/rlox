@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::value::{Class, Function, Value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum OpCode {
     Return = 0,
@@ -37,6 +37,8 @@ pub enum OpCode {
     Class = 29,
     GetProperty = 30,
     SetProperty = 31,
+    BeginArray = 32,
+    EndArray = 33,
 }
 
 impl fmt::Display for OpCode {
@@ -138,6 +140,12 @@ impl fmt::Display for OpCode {
             OpCode::SetProperty => {
                 write!(f, "OP_SET_PROPERTY")
             }
+            OpCode::BeginArray => {
+                write!(f, "OP_BEGIN_ARRAY")
+            }
+            OpCode::EndArray => {
+                write!(f, "OP_END_ARRAY")
+            }
         }
     }
 }
@@ -177,6 +185,8 @@ impl OpCode {
             29 => Some(OpCode::Class),
             30 => Some(OpCode::GetProperty),
             31 => Some(OpCode::SetProperty),
+            32 => Some(OpCode::BeginArray),
+            33 => Some(OpCode::EndArray),
             _ => None,
         }
     }

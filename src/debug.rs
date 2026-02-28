@@ -28,6 +28,7 @@ fn get_value_debug_string(value: &Value) -> String {
         },
         Value::Class(c) => format!("{}", c.name),
         Value::Instance(i) => format!("{}", i.borrow().class.name),
+        Value::Array(a) => format!("array: {:?}", a),
     }
 }
 
@@ -330,6 +331,14 @@ pub mod print_debug {
 
                 next_offset(offset, if operand.is_some() { 2 } else { 1 })
             }
+            OpCode::BeginArray => {
+                println!("array");
+                todo!("array not implemented");
+            }
+            OpCode::EndArray => {
+                println!("array");
+                todo!("array not implemented");
+            }
         }
     }
 
@@ -598,6 +607,14 @@ pub mod write_debug {
                     ),
                     next_offset(offset, if operand.is_some() { 2 } else { 1 }),
                 )
+            }
+            OpCode::BeginArray => {
+                println!("array");
+                todo!("array not implemented");
+            }
+            OpCode::EndArray => {
+                println!("array");
+                todo!("array not implemented");
             }
         }
     }

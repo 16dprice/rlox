@@ -72,6 +72,7 @@ pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
+    Array(Vec<Value>),
     String(String),
     Function(Function),
     NativeFunction(NativeFunction),
@@ -123,6 +124,9 @@ impl fmt::Display for Value {
             }
             Value::Instance(i) => {
                 write!(f, "{} instance", i.borrow().class.name)
+            }
+            Value::Array(a) => {
+                write!(f, "{:?} array", a)
             }
         }
     }

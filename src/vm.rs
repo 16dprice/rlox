@@ -185,6 +185,7 @@ impl<T: ValueStack> VM<T> {
             },
             Value::Class(c) => println!("{}", c.name),
             Value::Instance(i) => println!("{} instance", i.borrow().class.name),
+            Value::Array(a) => println!("array: {:?}", a),
         }
     }
 
@@ -447,6 +448,34 @@ impl<T: ValueStack> VM<T> {
                 OpCode::Constant => {
                     let constant = read_constant!();
                     self.value_stack.push(constant.clone());
+                }
+                OpCode::BeginArray => {
+                    let mut array: Vec<Value> = vec![];
+                    let mut instruction: OpCode;
+
+                    loop {
+                        instruction = get_instruction!().unwrap();
+
+                        if instruction.clone() as u8 == OpCode::EndArray as u8 {
+                            break;
+                        }
+
+                        match instruction {
+                            OpCode::Constant => {
+                                let constant = read_constant!();
+                                array.push(constant.clone());
+                            }
+                            _ => {
+                                todo!("only constants supported for now");
+                            }
+                        }
+                    }
+
+                    self.value_stack.push(Value::Array(array));
+                }
+                OpCode::EndArray => {
+                    self.runtime_error("End of array should've been handled by BeginArray");
+                    return InterpretResult::RuntimeError;
                 }
                 OpCode::Add => {
                     let b = self.value_stack.pop();

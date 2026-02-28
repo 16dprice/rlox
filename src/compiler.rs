@@ -183,6 +183,22 @@ impl Compiler {
             },
         );
         compiler.precedence_map.insert(
+            TokenType::LeftBracket,
+            ParseRule {
+                prefix: Some(Compiler::array),
+                infix: None,
+                precedence: Precedence::None,
+            },
+        );
+        compiler.precedence_map.insert(
+            TokenType::RightBracket,
+            ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+        );
+        compiler.precedence_map.insert(
             TokenType::Comma,
             ParseRule {
                 prefix: None,
@@ -721,6 +737,22 @@ impl Compiler {
             Err(e) => self
                 .error(format!("couldn't parse {} into number, got error: {}", lexeme, e).as_str()),
         }
+    }
+
+    fn array(&mut self, can_assign: bool) {
+        // TODO: arrays only handle numbers right now
+        // They should handle everything
+        self.emit_byte(OpCode::BeginArray as u8);
+
+        while self.match_token(TokenType::Number) {
+            self.number(can_assign);
+            if !self.match_token(TokenType::Comma) {
+                self.consume(TokenType::RightBracket, "expected right bracket");
+                break;
+            }
+        }
+
+        self.emit_byte(OpCode::EndArray as u8);
     }
 
     fn unary(&mut self, _can_assign: bool) {
